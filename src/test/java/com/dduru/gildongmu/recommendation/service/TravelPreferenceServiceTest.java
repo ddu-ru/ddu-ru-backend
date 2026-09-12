@@ -11,6 +11,7 @@ import com.dduru.gildongmu.recommendation.domain.enums.RecommendationDestination
 import com.dduru.gildongmu.recommendation.dto.request.AvailableDateRequest;
 import com.dduru.gildongmu.recommendation.dto.request.DestinationPreferenceRequest;
 import com.dduru.gildongmu.recommendation.dto.request.TravelPreferenceUpdateRequest;
+import com.dduru.gildongmu.recommendation.dto.request.TravelPreferencePatchRequest;
 import com.dduru.gildongmu.recommendation.dto.response.TravelPreferenceResponse;
 import com.dduru.gildongmu.recommendation.exception.DuplicateAvailableDateException;
 import com.dduru.gildongmu.recommendation.exception.InvalidAvailableDateException;
@@ -314,6 +315,57 @@ class TravelPreferenceServiceTest {
         destinationPreferenceRepository.save(UserRecommendationDestinationPreference.country(user, "JP", 1));
         assertThat(travelPreferenceService.getTravelPreferences(user.getId()).destinationPreferences())
                 .extracting("preferenceRank").containsExactly(1, 2);
+    }
+
+    @Test
+    void patchDestinationsPreservesExistingDateRows() {
+        User user = saveUser();
+        Destination tokyo = saveDestination("JP", "일본", "도쿄");
+        var date = availableDateRepository.save(UserRecommendationAvailableDate.of(user, date(2026, 10, 1), date(2026, 10, 3)));
+        var patch = new TravelPreferencePatchRequest();
+        patch.setDestinationPreferences(List.of(
+                new DestinationPreferenceRequest(RecommendationDestinationPreferenceType.COUNTRY, "JP", null),
+                new DestinationPreferenceRequest(RecommendationDestinationPreferenceType.CITY, null, tokyo.getId())));
+        travelPreferenceService.patchTravelPreferences(user.getId(), patch);
+        assertThat(travelPreferenceService.getTravelPreferences(user.getId()).destinationPreferences())
+                .extracting("preferenceRank").containsExactly(1, 2);
+        assertThat(availableDateRepository.findAllByUser_Id(user.getId())).extracting("id").containsExactly(date.getId());
+        patch.setDestinationPreferences(List.of());
+        travelPreferenceService.patchTravelPreferences(user.getId(), patch);
+        assertThat(destinationPreferenceRepository.existsByUser_Id(user.getId())).isFalse();
+        assertThat(availableDateRepository.findAllByUser_Id(user.getId())).extracting("id").containsExactly(date.getId());
+    }
+
+    @Test
+    void patchDatesPreservesDestinationRowsAndEmptyPatchChangesNothing() {
+        User user = saveUser();
+        saveDestination("JP", "일본", "도쿄");
+        var preference = destinationPreferenceRepository.save(UserRecommendationDestinationPreference.country(user, "JP", 1));
+        var patch = new TravelPreferencePatchRequest();
+        patch.setAvailableDates(List.of(new AvailableDateRequest(date(2026, 10, 1), date(2026, 10, 3))));
+        travelPreferenceService.patchTravelPreferences(user.getId(), patch);
+        var dateId = availableDateRepository.findAllByUser_Id(user.getId()).get(0).getId();
+        travelPreferenceService.patchTravelPreferences(user.getId(), new TravelPreferencePatchRequest());
+        assertThat(availableDateRepository.findAllByUser_Id(user.getId())).extracting("id").containsExactly(dateId);
+        patch.setAvailableDates(List.of());
+        travelPreferenceService.patchTravelPreferences(user.getId(), patch);
+        assertThat(availableDateRepository.findAllByUser_Id(user.getId())).isEmpty();
+        assertThat(destinationPreferenceRepository.findAllByUserIdWithDestination(user.getId()))
+                .extracting("id").containsExactly(preference.getId());
+    }
+
+    @Test
+    void invalidDateInCombinedPatchDoesNotReplaceDestinations() {
+        User user = saveUser();
+        saveDestination("JP", "일본", "도쿄");
+        var preference = destinationPreferenceRepository.save(UserRecommendationDestinationPreference.country(user, "JP", 1));
+        var patch = new TravelPreferencePatchRequest();
+        patch.setDestinationPreferences(List.of());
+        patch.setAvailableDates(List.of(new AvailableDateRequest(date(2026, 10, 3), date(2026, 10, 1))));
+        assertThatThrownBy(() -> travelPreferenceService.patchTravelPreferences(user.getId(), patch))
+                .isInstanceOf(InvalidAvailableDateException.class);
+        assertThat(destinationPreferenceRepository.findAllByUserIdWithDestination(user.getId()))
+                .extracting("id").containsExactly(preference.getId());
     }
 
     private User saveUser() {
