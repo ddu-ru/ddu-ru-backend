@@ -80,7 +80,7 @@ class TravelPreferenceServiceTest {
     void getTravelPreferences_returnsCountryTypeWithCountryName() {
         User user = saveUser();
         saveDestination("JP", "일본", "도쿄");
-        destinationPreferenceRepository.save(UserRecommendationDestinationPreference.country(user, "JP"));
+        destinationPreferenceRepository.save(UserRecommendationDestinationPreference.country(user, "JP", 1));
 
         TravelPreferenceResponse response = travelPreferenceService.getTravelPreferences(user.getId());
 
@@ -95,7 +95,7 @@ class TravelPreferenceServiceTest {
     void getTravelPreferences_returnsCityTypeWithCityInfo() {
         User user = saveUser();
         Destination tokyo = saveDestination("JP", "일본", "도쿄");
-        destinationPreferenceRepository.save(UserRecommendationDestinationPreference.city(user, tokyo));
+        destinationPreferenceRepository.save(UserRecommendationDestinationPreference.city(user, tokyo, 1));
 
         TravelPreferenceResponse response = travelPreferenceService.getTravelPreferences(user.getId());
 
@@ -248,7 +248,7 @@ class TravelPreferenceServiceTest {
         User user = saveUser();
         Destination tokyo = saveDestination("JP", "일본", "도쿄");
         Destination busan = saveDestination("KR", "대한민국", "부산");
-        destinationPreferenceRepository.save(UserRecommendationDestinationPreference.city(user, tokyo));
+        destinationPreferenceRepository.save(UserRecommendationDestinationPreference.city(user, tokyo, 1));
         availableDateRepository.save(UserRecommendationAvailableDate.of(user, date(2026, 7, 1), date(2026, 7, 7)));
 
         TravelPreferenceUpdateRequest request = new TravelPreferenceUpdateRequest(
@@ -265,6 +265,55 @@ class TravelPreferenceServiceTest {
         List<UserRecommendationAvailableDate> dates = availableDateRepository.findAllByUser_Id(user.getId());
         assertThat(dates).hasSize(1);
         assertThat(dates.get(0).getStartDate()).isEqualTo(date(2026, 8, 1));
+    }
+
+    @Test
+    void ranksFollowDeduplicatedOrderAndCanBeReplacedAndCleared() {
+        User user = saveUser();
+        Destination tokyo = saveDestination("JP", "일본", "도쿄");
+        var city = new DestinationPreferenceRequest(RecommendationDestinationPreferenceType.CITY, null, tokyo.getId());
+        var country = new DestinationPreferenceRequest(RecommendationDestinationPreferenceType.COUNTRY, "JP", null);
+        travelPreferenceService.updateTravelPreferences(user.getId(),
+                new TravelPreferenceUpdateRequest(List.of(city, city, country), List.of()));
+        var first = travelPreferenceService.getTravelPreferences(user.getId()).destinationPreferences();
+        assertThat(first).extracting("preferenceRank").containsExactly(1, 2);
+        assertThat(first).extracting("type").containsExactly(RecommendationDestinationPreferenceType.CITY,
+                RecommendationDestinationPreferenceType.COUNTRY);
+        travelPreferenceService.updateTravelPreferences(user.getId(),
+                new TravelPreferenceUpdateRequest(List.of(country, city), List.of()));
+        assertThat(destinationPreferenceRepository.findFirstPreferenceByUserId(user.getId()).orElseThrow().getCountryCode())
+                .isEqualTo("JP");
+        assertThat(destinationPreferenceRepository.findFilterRowsByUserId(user.getId())).hasSize(2);
+        travelPreferenceService.updateTravelPreferences(user.getId(),
+                new TravelPreferenceUpdateRequest(List.of(city), List.of()));
+        assertThat(travelPreferenceService.getTravelPreferences(user.getId()).destinationPreferences())
+                .extracting("preferenceRank").containsExactly(1);
+        travelPreferenceService.updateTravelPreferences(user.getId(),
+                new TravelPreferenceUpdateRequest(List.of(), List.of()));
+        assertThat(destinationPreferenceRepository.existsByUser_Id(user.getId())).isFalse();
+    }
+
+    @Test
+    void rejectsMoreThanThreeBeforeDeduplication() {
+        User user = saveUser();
+        var country = new DestinationPreferenceRequest(RecommendationDestinationPreferenceType.COUNTRY, "JP", null);
+        var request = new TravelPreferenceUpdateRequest(List.of(country, country, country, country), List.of());
+        try (var factory = jakarta.validation.Validation.buildDefaultValidatorFactory()) {
+            assertThat(factory.getValidator().validate(request)).isNotEmpty();
+            assertThat(factory.getValidator().validate(new TravelPreferenceUpdateRequest(List.of(), List.of()))).isEmpty();
+        }
+        assertThatThrownBy(() -> travelPreferenceService.updateTravelPreferences(user.getId(), request))
+                .isInstanceOf(InvalidDestinationPreferenceException.class);
+    }
+
+    @Test
+    void rankOrderIsIndependentOfInsertionOrder() {
+        User user = saveUser();
+        Destination tokyo = saveDestination("JP", "일본", "도쿄");
+        destinationPreferenceRepository.save(UserRecommendationDestinationPreference.city(user, tokyo, 2));
+        destinationPreferenceRepository.save(UserRecommendationDestinationPreference.country(user, "JP", 1));
+        assertThat(travelPreferenceService.getTravelPreferences(user.getId()).destinationPreferences())
+                .extracting("preferenceRank").containsExactly(1, 2);
     }
 
     private User saveUser() {

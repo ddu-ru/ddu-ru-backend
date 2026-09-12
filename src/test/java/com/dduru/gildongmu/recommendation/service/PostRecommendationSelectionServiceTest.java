@@ -254,8 +254,8 @@ class PostRecommendationSelectionServiceTest {
         Destination busan = destination("KR", "대한민국", "부산");
         Destination tokyo = destination("JP", "일본", "도쿄");
         Destination paris = destination("FR", "프랑스", "파리");
-        destinationPreferenceRepository.save(UserRecommendationDestinationPreference.country(applicant, "KR"));
-        destinationPreferenceRepository.save(UserRecommendationDestinationPreference.city(applicant, tokyo));
+        destinationPreferenceRepository.save(UserRecommendationDestinationPreference.country(applicant, "KR", 1));
+        destinationPreferenceRepository.save(UserRecommendationDestinationPreference.city(applicant, tokyo, 2));
 
         Post jejuPost = openPost(hostWithTendency("host-jeju", 5, 5, 5, 5), jeju, TODAY.plusDays(5), TODAY.plusDays(7), CompanionType.FULL);
         Post busanPost = openPost(hostWithTendency("host-busan", 5, 5, 5, 5), busan, TODAY.plusDays(6), TODAY.plusDays(8), CompanionType.FULL);
