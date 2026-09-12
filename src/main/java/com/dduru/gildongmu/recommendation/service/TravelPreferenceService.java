@@ -1,5 +1,6 @@
 package com.dduru.gildongmu.recommendation.service;
 
+import com.dduru.gildongmu.auth.exception.UserNotFoundException;
 import com.dduru.gildongmu.destination.domain.Destination;
 import com.dduru.gildongmu.destination.exception.DestinationNotFoundException;
 import com.dduru.gildongmu.recommendation.exception.DuplicateAvailableDateException;
@@ -31,6 +32,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 @Service
 @RequiredArgsConstructor
@@ -68,9 +70,12 @@ public class TravelPreferenceService {
 
     @Transactional
     public void updateTravelPreferences(Long userId, TravelPreferenceUpdateRequest request) {
+        if (request.destinationPreferences().size() > 3) {
+            throw new InvalidDestinationPreferenceException();
+        }
         validateAvailableDates(request.availableDates());
 
-        User user = userRepository.getByIdOrThrow(userId);
+        User user = userRepository.findByIdWithLock(userId).orElseThrow(UserNotFoundException::new);
         List<DestinationPreferenceRequest> destinationPreferenceRequests = request.destinationPreferences();
 
         List<Long> cityDestinationIds = destinationPreferenceRequests.stream()
@@ -91,8 +96,8 @@ public class TravelPreferenceService {
         availableDateRepository.deleteAllByUserId(userId);
 
         destinationPreferenceRepository.saveAll(
-                normalizedDestinationPreferences.stream()
-                        .map(preferenceRequest -> toDestinationPreferenceEntity(preferenceRequest, user, destinationById))
+                IntStream.range(0, normalizedDestinationPreferences.size())
+                        .mapToObj(index -> toDestinationPreferenceEntity(normalizedDestinationPreferences.get(index), user, destinationById, index + 1))
                         .toList()
         );
 
@@ -186,11 +191,12 @@ public class TravelPreferenceService {
     private UserRecommendationDestinationPreference toDestinationPreferenceEntity(
             DestinationPreferenceRequest preferenceRequest,
             User user,
-            Map<Long, Destination> destinationById
+            Map<Long, Destination> destinationById,
+            int preferenceRank
     ) {
         return switch (preferenceRequest.type()) {
-            case COUNTRY -> UserRecommendationDestinationPreference.country(user, preferenceRequest.countryCode());
-            case CITY -> UserRecommendationDestinationPreference.city(user, destinationById.get(preferenceRequest.destinationId()));
+            case COUNTRY -> UserRecommendationDestinationPreference.country(user, preferenceRequest.countryCode(), preferenceRank);
+            case CITY -> UserRecommendationDestinationPreference.city(user, destinationById.get(preferenceRequest.destinationId()), preferenceRank);
         };
     }
 }

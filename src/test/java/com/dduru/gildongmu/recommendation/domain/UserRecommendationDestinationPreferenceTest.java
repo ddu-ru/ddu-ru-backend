@@ -18,7 +18,7 @@ class UserRecommendationDestinationPreferenceTest {
     @DisplayName("COUNTRY 선호는 두 자리 국가 코드로 생성한다")
     void createsCountryPreference() {
         UserRecommendationDestinationPreference preference =
-                UserRecommendationDestinationPreference.country(user(), "KR");
+                UserRecommendationDestinationPreference.country(user(), "KR", 1);
 
         assertThat(preference.getPreferenceType()).isEqualTo(RecommendationDestinationPreferenceType.COUNTRY);
         assertThat(preference.getCountryCode()).isEqualTo("KR");
@@ -28,16 +28,16 @@ class UserRecommendationDestinationPreferenceTest {
     @Test
     @DisplayName("COUNTRY 선호는 국가 코드 없이 생성할 수 없다")
     void cannotCreateCountryPreferenceWithoutCountryCode() {
-        assertThatThrownBy(() -> UserRecommendationDestinationPreference.country(user(), null))
+        assertThatThrownBy(() -> UserRecommendationDestinationPreference.country(user(), null, 1))
                 .isInstanceOf(InvalidDestinationPreferenceException.class);
-        assertThatThrownBy(() -> UserRecommendationDestinationPreference.country(user(), " "))
+        assertThatThrownBy(() -> UserRecommendationDestinationPreference.country(user(), " ", 1))
                 .isInstanceOf(InvalidDestinationPreferenceException.class);
     }
 
     @Test
     @DisplayName("COUNTRY 선호는 두 자리가 아닌 국가 코드로 생성할 수 없다")
     void cannotCreateCountryPreferenceWithInvalidCountryCodeLength() {
-        assertThatThrownBy(() -> UserRecommendationDestinationPreference.country(user(), "KOR"))
+        assertThatThrownBy(() -> UserRecommendationDestinationPreference.country(user(), "KOR", 1))
                 .isInstanceOf(InvalidDestinationPreferenceException.class);
     }
 
@@ -51,7 +51,7 @@ class UserRecommendationDestinationPreferenceTest {
                 .build();
 
         UserRecommendationDestinationPreference preference =
-                UserRecommendationDestinationPreference.city(user(), destination);
+                UserRecommendationDestinationPreference.city(user(), destination, 1);
 
         assertThat(preference.getPreferenceType()).isEqualTo(RecommendationDestinationPreferenceType.CITY);
         assertThat(preference.getCountryCode()).isNull();
@@ -61,8 +61,16 @@ class UserRecommendationDestinationPreferenceTest {
     @Test
     @DisplayName("CITY 선호는 여행지 없이 생성할 수 없다")
     void cannotCreateCityPreferenceWithoutDestination() {
-        assertThatThrownBy(() -> UserRecommendationDestinationPreference.city(user(), null))
+        assertThatThrownBy(() -> UserRecommendationDestinationPreference.city(user(), null, 1))
                 .isInstanceOf(InvalidDestinationPreferenceException.class);
+    }
+
+    @Test
+    void invalidRankIsRejected() {
+        for (int rank : new int[]{0, 4}) {
+            assertThatThrownBy(() -> UserRecommendationDestinationPreference.country(user(), "KR", rank))
+                    .isInstanceOf(InvalidDestinationPreferenceException.class);
+        }
     }
 
     private User user() {
