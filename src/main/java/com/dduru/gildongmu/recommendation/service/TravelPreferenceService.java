@@ -13,6 +13,7 @@ import com.dduru.gildongmu.recommendation.domain.enums.RecommendationDestination
 import com.dduru.gildongmu.recommendation.dto.request.AvailableDateRequest;
 import com.dduru.gildongmu.recommendation.dto.request.DestinationPreferenceRequest;
 import com.dduru.gildongmu.recommendation.dto.request.TravelPreferenceUpdateRequest;
+import com.dduru.gildongmu.recommendation.dto.request.TravelPreferencePatchRequest;
 import com.dduru.gildongmu.recommendation.dto.response.AvailableDateResponse;
 import com.dduru.gildongmu.recommendation.dto.response.DestinationPreferenceResponse;
 import com.dduru.gildongmu.recommendation.dto.response.TravelPreferenceResponse;
@@ -70,14 +71,35 @@ public class TravelPreferenceService {
 
     @Transactional
     public void updateTravelPreferences(Long userId, TravelPreferenceUpdateRequest request) {
-        if (request.destinationPreferences().size() > 3) {
+        saveTravelPreferences(userId, request.destinationPreferences(), request.availableDates());
+    }
+
+    @Transactional
+    public void patchTravelPreferences(Long userId, TravelPreferencePatchRequest request) {
+        saveTravelPreferences(userId, request.getDestinationPreferences(), request.getAvailableDates());
+    }
+
+    private void saveTravelPreferences(Long userId, List<DestinationPreferenceRequest> destinations,
+                                       List<AvailableDateRequest> dates) {
+        if (destinations != null && destinations.size() > 3) {
             throw new InvalidDestinationPreferenceException();
         }
-        validateAvailableDates(request.availableDates());
-
+        if (dates != null) {
+            validateAvailableDates(dates);
+        }
         User user = userRepository.findByIdWithLock(userId).orElseThrow(UserNotFoundException::new);
-        List<DestinationPreferenceRequest> destinationPreferenceRequests = request.destinationPreferences();
+        if (destinations != null) {
+            replaceDestinationPreferences(user, destinations);
+        }
+        if (dates != null) {
+            availableDateRepository.deleteAllByUserId(userId);
+            availableDateRepository.saveAll(dates.stream()
+                    .map(date -> UserRecommendationAvailableDate.of(user, date.startDate(), date.endDate()))
+                    .toList());
+        }
+    }
 
+    private void replaceDestinationPreferences(User user, List<DestinationPreferenceRequest> destinationPreferenceRequests) {
         List<Long> cityDestinationIds = destinationPreferenceRequests.stream()
                 .filter(preferenceRequest -> preferenceRequest.type() == RecommendationDestinationPreferenceType.CITY)
                 .map(DestinationPreferenceRequest::destinationId)
@@ -92,18 +114,11 @@ public class TravelPreferenceService {
 
         List<DestinationPreferenceRequest> normalizedDestinationPreferences = deduplicateDestinationPreferences(destinationPreferenceRequests);
 
-        destinationPreferenceRepository.deleteAllByUserId(userId);
-        availableDateRepository.deleteAllByUserId(userId);
+        destinationPreferenceRepository.deleteAllByUserId(user.getId());
 
         destinationPreferenceRepository.saveAll(
                 IntStream.range(0, normalizedDestinationPreferences.size())
                         .mapToObj(index -> toDestinationPreferenceEntity(normalizedDestinationPreferences.get(index), user, destinationById, index + 1))
-                        .toList()
-        );
-
-        availableDateRepository.saveAll(
-                request.availableDates().stream()
-                        .map(availableDateRequest -> UserRecommendationAvailableDate.of(user, availableDateRequest.startDate(), availableDateRequest.endDate()))
                         .toList()
         );
     }

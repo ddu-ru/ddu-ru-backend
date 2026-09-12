@@ -8,6 +8,7 @@ import com.dduru.gildongmu.post.dto.request.MyPagePostListRequest;
 import com.dduru.gildongmu.post.dto.response.MyPageLikedPostListResponse;
 import com.dduru.gildongmu.post.dto.response.MyPagePostListResponse;
 import com.dduru.gildongmu.recommendation.dto.request.TravelPreferenceUpdateRequest;
+import com.dduru.gildongmu.recommendation.dto.request.TravelPreferencePatchRequest;
 import com.dduru.gildongmu.recommendation.dto.response.TravelPreferenceResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -78,6 +79,22 @@ public interface UserApiDocs {
     ResponseEntity<ApiResult<Void>> updateTravelPreferences(
             @Parameter(hidden = true) Long userId,
             @Valid TravelPreferenceUpdateRequest request
+    );
+
+    @Operation(
+            summary = "여행 선호 설정 부분 수정",
+            description = "생략한 목록은 유지하고 전달한 목록만 전체 교체합니다. " +
+                    "destinationPreferences는 최대 3개이며 중복 제거 후 배열 순서대로 순위를 부여합니다. " +
+                    "빈 배열은 해당 목록 전체 삭제이며, 명시적 null은 허용하지 않습니다. 빈 객체는 변경하지 않습니다.",
+            security = @SecurityRequirement(name = "JWT")
+    )
+    @ApiResponse(responseCode = "204", description = "수정 성공")
+    @ApiErrorResponses({ErrorCode.UNAUTHORIZED, ErrorCode.INVALID_INPUT_VALUE,
+            ErrorCode.DESTINATION_NOT_FOUND, ErrorCode.INVALID_DESTINATION_PREFERENCE,
+            ErrorCode.INVALID_AVAILABLE_DATE, ErrorCode.DUPLICATE_AVAILABLE_DATE})
+    ResponseEntity<ApiResult<Void>> patchTravelPreferences(
+            @Parameter(hidden = true) Long userId,
+            @Valid TravelPreferencePatchRequest request
     );
 
 }
