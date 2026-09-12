@@ -109,11 +109,10 @@ public interface HomeApiDocs {
             @Parameter(hidden = true) Long userId
     );
 
-    @Operation(summary = "홈 같은 여행지 여행 섹션 조회", description = "회원의 선호 여행지와 같은 동행 섹션 데이터를 조회합니다.")
+    @Operation(summary = "홈 같은 여행지 여행 섹션 조회", description = "1순위 선호 도시 또는 국가의 모집 중 게시글을 최신순으로 최대 3개 조회합니다. 선호나 후보가 없으면 빈 배열이며 2·3순위로 보충하지 않습니다.")
     @ApiResponse(responseCode = "200", description = "조회 성공")
     @ApiErrorResponses({
-            ErrorCode.UNAUTHORIZED,
-            ErrorCode.USER_ONBOARDING_NOT_FOUND
+            ErrorCode.UNAUTHORIZED
     })
     ResponseEntity<ApiResult<List<SameDestinationTripResponse>>> retrieveSameDestinationTrips(
             @Parameter(hidden = true) Long userId
