@@ -22,7 +22,7 @@ public class HomeOverviewQueryService {
     @Transactional(readOnly = true)
     public HomeResponse retrieve(Long userId) {
         UserAccessStatus userAccessStatus = resolveUserAccessStatus(userId);
-        return new HomeResponse(userAccessStatus, sections(userAccessStatus, userId != null && preferenceRepository.existsByUser_Id(userId)));
+        return new HomeResponse(userAccessStatus, sections(userAccessStatus, hasPreference(userId)));
     }
 
     private UserAccessStatus resolveUserAccessStatus(Long userId) {
@@ -97,6 +97,10 @@ public class HomeOverviewQueryService {
 
     private static boolean isMember(UserAccessStatus userAccessStatus) {
         return userAccessStatus != UserAccessStatus.GUEST;
+    }
+
+    private boolean hasPreference(Long userId) {
+        return userId != null && preferenceRepository.existsByUser_Id(userId);
     }
 
     private static boolean isSurveyCompleted(UserAccessStatus userAccessStatus) {
