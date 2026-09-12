@@ -51,7 +51,7 @@ public interface UserApiDocs {
 
     @Operation(
             summary = "여행 선호 설정 조회",
-            description = "선택된 여행지(국가/도시)와 여행 가능 날짜 범위 목록을 조회합니다.",
+            description = "선택된 여행지(국가/도시)를 preferenceRank 오름차순으로 조회하며 여행 가능 날짜 범위를 함께 반환합니다.",
             security = @SecurityRequirement(name = "JWT")
     )
     @ApiResponse(responseCode = "200", description = "조회 성공")
@@ -62,9 +62,9 @@ public interface UserApiDocs {
 
     @Operation(
             summary = "여행 선호 설정 수정",
-            description = "여행지 선호(국가/도시)와 여행 가능 날짜를 전체 교체합니다. " +
+            description = "여행지 선호는 최대 3개이며 배열 순서가 1~3순위입니다. 여행 가능 날짜와 함께 전체 교체합니다. " +
                     "빈 리스트([])를 전달하면 해당 항목을 모두 삭제합니다. " +
-                    "동일한 COUNTRY 또는 CITY 중복 요청은 하나로 정리되며, COUNTRY와 같은 국가의 CITY는 함께 저장할 수 있습니다.",
+                    "동일한 COUNTRY 또는 CITY 중복 요청은 첫 항목을 유지하고 연속 순위를 부여하며, COUNTRY와 같은 국가의 CITY는 함께 저장할 수 있습니다.",
             security = @SecurityRequirement(name = "JWT")
     )
     @ApiResponse(responseCode = "204", description = "수정 성공")
