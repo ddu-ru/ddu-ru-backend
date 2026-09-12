@@ -15,6 +15,7 @@ import com.dduru.gildongmu.home.service.HomePopularDestinationQueryService;
 import com.dduru.gildongmu.home.service.HomeRecommendationQueryService;
 import com.dduru.gildongmu.home.service.HomeSuperHostQueryService;
 import com.dduru.gildongmu.home.service.HomeTripQueryService;
+import com.dduru.gildongmu.home.service.HomeDestinationTripQueryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,6 +32,7 @@ public class HomeController implements HomeApiDocs {
     private final HomePopularDestinationQueryService homePopularDestinationQueryService;
     private final HomeRecommendationQueryService homeRecommendationQueryService;
     private final HomeSuperHostQueryService homeSuperHostQueryService;
+    private final HomeDestinationTripQueryService homeDestinationTripQueryService;
 
     @Override
     @GetMapping(HomeEndpoints.HOME)
@@ -78,7 +80,7 @@ public class HomeController implements HomeApiDocs {
     public ResponseEntity<ApiResult<List<SameDestinationTripResponse>>> retrieveSameDestinationTrips(
             @CurrentUser Long userId
     ) {
-        List<SameDestinationTripResponse> response = homeTripQueryService.retrieveSameDestinationTrips(userId);
+        List<SameDestinationTripResponse> response = homeDestinationTripQueryService.retrieve(userId);
         return ResponseEntity.ok(ApiResult.ok(response));
     }
 
