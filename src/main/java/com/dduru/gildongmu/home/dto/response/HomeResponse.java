@@ -28,7 +28,7 @@ public record HomeResponse(
 
     public enum DisabledReason {
         LOGIN_REQUIRED,
-        SURVEY_REQUIRED
-        // TODO: 추후 일정 등록 여부, 여행지 등록 여부 등이 있음.
+        SURVEY_REQUIRED,
+        DESTINATION_PREFERENCE_REQUIRED
     }
 }

@@ -52,6 +52,8 @@ import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
 
+import com.dduru.gildongmu.recommendation.repository.UserRecommendationDestinationPreferenceRepository;
+import com.dduru.gildongmu.home.service.HomeDestinationTripQueryService;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -127,13 +129,14 @@ class HomeControllerTest {
                 .andExpect(jsonPath("$.data.sections[2].enabled").value(false))
                 .andExpect(jsonPath("$.data.sections[2].disabledReason").value("SURVEY_REQUIRED"))
                 .andExpect(jsonPath("$.data.sections[4].key").value("SAME_DESTINATION_TRIPS"))
-                .andExpect(jsonPath("$.data.sections[4].enabled").value(true))
+                .andExpect(jsonPath("$.data.sections[4].enabled").value(false))
+                .andExpect(jsonPath("$.data.sections[4].disabledReason").value("DESTINATION_PREFERENCE_REQUIRED"))
                 .andExpect(jsonPath("$.data.sections[5].key").value("SAME_AGE_TRIPS"))
                 .andExpect(jsonPath("$.data.sections[5].enabled").value(true));
     }
 
     @Test
-    @DisplayName("설문 완료 회원은 모든 홈 섹션을 호출 가능 상태로 받는다")
+    @DisplayName("설문 완료 회원도 선호가 없으면 같은 여행지 섹션은 비활성화된다")
     void retrieveHome_memberSurveyCompleted() throws Exception {
         UserOnboarding onboarding = new UserOnboarding(user());
         onboarding.completeSurvey();
@@ -150,7 +153,8 @@ class HomeControllerTest {
                 .andExpect(jsonPath("$.data.sections[1].enabled").value(true))
                 .andExpect(jsonPath("$.data.sections[2].enabled").value(true))
                 .andExpect(jsonPath("$.data.sections[3].enabled").value(true))
-                .andExpect(jsonPath("$.data.sections[4].enabled").value(true))
+                .andExpect(jsonPath("$.data.sections[4].enabled").value(false))
+                .andExpect(jsonPath("$.data.sections[4].disabledReason").value("DESTINATION_PREFERENCE_REQUIRED"))
                 .andExpect(jsonPath("$.data.sections[5].enabled").value(true))
                 .andExpect(jsonPath("$.data.sections[2].disabledReason").value(nullValue()));
     }
@@ -265,9 +269,7 @@ class HomeControllerTest {
         mockMvc.perform(get(HomeEndpoints.SAME_DESTINATION_TRIPS))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value(200))
-                .andExpect(jsonPath("$.data.length()").value(3))
-                .andExpect(jsonPath("$.data[0].postId").value(601))
-                .andExpect(jsonPath("$.data[0].startDate").value("2026-05-27"));
+                .andExpect(jsonPath("$.data.length()").value(0));
     }
 
     @Test
@@ -445,7 +447,7 @@ class HomeControllerTest {
         )).thenReturn(List.of(journey));
 
         return standaloneSetup(new HomeController(
-                new HomeOverviewQueryService(onboardingService),
+                new HomeOverviewQueryService(onboardingService, mock(UserRecommendationDestinationPreferenceRepository.class)),
                 new HomeTripQueryService(
                         timeProvider,
                         onboardingService,
@@ -454,7 +456,8 @@ class HomeControllerTest {
                 ),
                 new HomePopularDestinationQueryService(timeProvider),
                 new HomeRecommendationQueryService(dailyMateRecommendationQueryService, recommendationMapper),
-                new HomeSuperHostQueryService(timeProvider)
+                new HomeSuperHostQueryService(timeProvider),
+                mock(HomeDestinationTripQueryService.class)
         ))
                 .setCustomArgumentResolvers(new FixedCurrentUserArgumentResolver(userId))
                 .setMessageConverters(new MappingJackson2HttpMessageConverter(objectMapper))

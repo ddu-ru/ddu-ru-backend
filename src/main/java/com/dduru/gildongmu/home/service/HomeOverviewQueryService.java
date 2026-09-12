@@ -5,6 +5,7 @@ import com.dduru.gildongmu.home.dto.response.HomeResponse;
 import com.dduru.gildongmu.home.enums.UserAccessStatus;
 import com.dduru.gildongmu.onboarding.domain.enums.SurveyStatus;
 import com.dduru.gildongmu.onboarding.service.OnboardingService;
+import com.dduru.gildongmu.recommendation.repository.UserRecommendationDestinationPreferenceRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,11 +17,12 @@ import java.util.List;
 public class HomeOverviewQueryService {
 
     private final OnboardingService onboardingService;
+    private final UserRecommendationDestinationPreferenceRepository preferenceRepository;
 
     @Transactional(readOnly = true)
     public HomeResponse retrieve(Long userId) {
         UserAccessStatus userAccessStatus = resolveUserAccessStatus(userId);
-        return new HomeResponse(userAccessStatus, sections(userAccessStatus));
+        return new HomeResponse(userAccessStatus, sections(userAccessStatus, userId != null && preferenceRepository.existsByUser_Id(userId)));
     }
 
     private UserAccessStatus resolveUserAccessStatus(Long userId) {
@@ -34,7 +36,7 @@ public class HomeOverviewQueryService {
         return UserAccessStatus.MEMBER_SURVEY_REQUIRED;
     }
 
-    private static List<HomeResponse.HomeSectionResponse> sections(UserAccessStatus userAccessStatus) {
+    private static List<HomeResponse.HomeSectionResponse> sections(UserAccessStatus userAccessStatus, boolean hasPreference) {
         return List.of(
                 section(
                         HomeResponse.SectionKey.UPCOMING_TRIP,
@@ -63,8 +65,9 @@ public class HomeOverviewQueryService {
                 section(
                         HomeResponse.SectionKey.SAME_DESTINATION_TRIPS,
                         HomeEndpoints.SAME_DESTINATION_TRIPS,
-                        isMember(userAccessStatus),
-                        HomeResponse.DisabledReason.LOGIN_REQUIRED
+                        isMember(userAccessStatus) && hasPreference,
+                        isMember(userAccessStatus) ? HomeResponse.DisabledReason.DESTINATION_PREFERENCE_REQUIRED
+                                : HomeResponse.DisabledReason.LOGIN_REQUIRED
                 ),
                 section(
                         HomeResponse.SectionKey.SAME_AGE_TRIPS,
