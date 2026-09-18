@@ -8,10 +8,13 @@ import com.dduru.gildongmu.post.dto.request.MyPagePostListRequest;
 import com.dduru.gildongmu.post.dto.response.MyPageLikedPostListResponse;
 import com.dduru.gildongmu.post.dto.response.MyPagePostListResponse;
 import com.dduru.gildongmu.recommendation.dto.request.TravelPreferenceUpdateRequest;
-import com.dduru.gildongmu.recommendation.dto.request.TravelPreferencePatchRequest;
 import com.dduru.gildongmu.recommendation.dto.response.TravelPreferenceResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -62,15 +65,40 @@ public interface UserApiDocs {
     );
 
     @Operation(
-            summary = "여행 선호 설정 수정",
-            description = "여행지 선호는 최대 3개이며 배열 순서가 1~3순위입니다. 여행 가능 날짜와 함께 전체 교체합니다. " +
-                    "빈 리스트([])를 전달하면 해당 항목을 모두 삭제합니다. " +
-                    "동일한 COUNTRY 또는 CITY 중복 요청은 첫 항목을 유지하고 연속 순위를 부여하며, COUNTRY와 같은 국가의 CITY는 함께 저장할 수 있습니다.",
+            summary = "여행 선호 설정 부분 수정",
+            description = "생략하거나 null인 목록은 유지하고 전달한 배열만 해당 목록 전체를 교체합니다. " +
+                    "destinationPreferences는 최대 3개이며 중복 제거 후 배열 순서대로 순위를 부여합니다. " +
+                    "국가 선택은 type=COUNTRY와 countryCode, 도시 선택은 type=CITY와 destinationId를 전달합니다. " +
+                    "빈 배열은 해당 목록 전체 삭제입니다. 배열 내부의 null 항목은 허용하지 않습니다. 빈 객체는 변경하지 않습니다.",
+            requestBody = @RequestBody(
+                    required = true,
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = TravelPreferenceUpdateRequest.class),
+                            examples = {
+                                    @ExampleObject(name = "COUNTRY", summary = "국가 선택: 일본 (기존 날짜 유지)", value = """
+                                            {
+                                              "destinationPreferences": [
+                                                { "type": "COUNTRY", "countryCode": "JP" }
+                                              ]
+                                            }
+                                            """),
+                                    @ExampleObject(name = "CITY", summary = "도시 선택 (기존 날짜 유지)", description = "destinationId는 선호 검색 API에서 받은 실제 도시 ID로 변경하세요.", value = """
+                                            {
+                                              "destinationPreferences": [
+                                                { "type": "CITY", "destinationId": 1 }
+                                              ]
+                                            }
+                                            """)
+                            }
+                    )
+            ),
             security = @SecurityRequirement(name = "JWT")
     )
     @ApiResponse(responseCode = "204", description = "수정 성공")
     @ApiErrorResponses({
             ErrorCode.UNAUTHORIZED,
+            ErrorCode.INVALID_INPUT_VALUE,
             ErrorCode.DESTINATION_NOT_FOUND,
             ErrorCode.INVALID_DESTINATION_PREFERENCE,
             ErrorCode.INVALID_AVAILABLE_DATE,
@@ -79,22 +107,6 @@ public interface UserApiDocs {
     ResponseEntity<ApiResult<Void>> updateTravelPreferences(
             @Parameter(hidden = true) Long userId,
             @Valid TravelPreferenceUpdateRequest request
-    );
-
-    @Operation(
-            summary = "여행 선호 설정 부분 수정",
-            description = "생략한 목록은 유지하고 전달한 목록만 전체 교체합니다. " +
-                    "destinationPreferences는 최대 3개이며 중복 제거 후 배열 순서대로 순위를 부여합니다. " +
-                    "빈 배열은 해당 목록 전체 삭제이며, 명시적 null은 허용하지 않습니다. 빈 객체는 변경하지 않습니다.",
-            security = @SecurityRequirement(name = "JWT")
-    )
-    @ApiResponse(responseCode = "204", description = "수정 성공")
-    @ApiErrorResponses({ErrorCode.UNAUTHORIZED, ErrorCode.INVALID_INPUT_VALUE,
-            ErrorCode.DESTINATION_NOT_FOUND, ErrorCode.INVALID_DESTINATION_PREFERENCE,
-            ErrorCode.INVALID_AVAILABLE_DATE, ErrorCode.DUPLICATE_AVAILABLE_DATE})
-    ResponseEntity<ApiResult<Void>> patchTravelPreferences(
-            @Parameter(hidden = true) Long userId,
-            @Valid TravelPreferencePatchRequest request
     );
 
 }

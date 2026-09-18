@@ -8,7 +8,6 @@ import com.dduru.gildongmu.post.dto.response.MyPageLikedPostListResponse;
 import com.dduru.gildongmu.post.dto.response.MyPagePostListResponse;
 import com.dduru.gildongmu.post.service.PostQueryService;
 import com.dduru.gildongmu.recommendation.dto.request.TravelPreferenceUpdateRequest;
-import com.dduru.gildongmu.recommendation.dto.request.TravelPreferencePatchRequest;
 import com.dduru.gildongmu.recommendation.dto.response.TravelPreferenceResponse;
 import com.dduru.gildongmu.recommendation.service.TravelPreferenceService;
 import jakarta.validation.Valid;
@@ -53,22 +52,12 @@ public class UserController implements UserApiDocs {
     }
 
     @Override
-    @PutMapping("/travel-preferences")
+    @PatchMapping("/travel-preferences")
     public ResponseEntity<ApiResult<Void>> updateTravelPreferences(
             @CurrentUser Long userId,
             @Valid @RequestBody TravelPreferenceUpdateRequest request
     ) {
         travelPreferenceService.updateTravelPreferences(userId, request);
-        return ResponseEntity.status(HttpStatus.NO_CONTENT).body(ApiResult.noContent());
-    }
-
-    @Override
-    @PatchMapping("/travel-preferences")
-    public ResponseEntity<ApiResult<Void>> patchTravelPreferences(
-            @CurrentUser Long userId,
-            @Valid @RequestBody TravelPreferencePatchRequest request
-    ) {
-        travelPreferenceService.patchTravelPreferences(userId, request);
         return ResponseEntity.status(HttpStatus.NO_CONTENT).body(ApiResult.noContent());
     }
 
