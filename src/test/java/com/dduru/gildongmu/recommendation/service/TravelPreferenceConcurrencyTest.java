@@ -5,6 +5,7 @@ import com.dduru.gildongmu.destination.domain.Destination;
 import com.dduru.gildongmu.destination.repository.DestinationRepository;
 import com.dduru.gildongmu.recommendation.domain.enums.RecommendationDestinationPreferenceType;
 import com.dduru.gildongmu.recommendation.dto.request.DestinationPreferenceRequest;
+import com.dduru.gildongmu.recommendation.dto.request.AvailableDateRequest;
 import com.dduru.gildongmu.recommendation.dto.request.TravelPreferenceUpdateRequest;
 import com.dduru.gildongmu.recommendation.repository.UserRecommendationAvailableDateRepository;
 import com.dduru.gildongmu.recommendation.repository.UserRecommendationDestinationPreferenceRepository;
@@ -54,7 +55,7 @@ class TravelPreferenceConcurrencyTest {
                 ready.countDown();
                 if (!start.await(5, TimeUnit.SECONDS)) throw new IllegalStateException("start timeout");
                 for (int i = 0; i < 5; i++) {
-                    service.updateTravelPreferences(user.getId(), new TravelPreferenceUpdateRequest(items, List.of()));
+                    service.updateTravelPreferences(user.getId(), testRequest(items, List.of()));
                 }
                 return null;
             })).toList();
@@ -74,4 +75,11 @@ class TravelPreferenceConcurrencyTest {
             destinations.deleteById(city.getId());
         }
     }
+    private TravelPreferenceUpdateRequest testRequest(
+            List<DestinationPreferenceRequest> destinationPreferences,
+            List<AvailableDateRequest> availableDates
+    ) {
+        return new TravelPreferenceUpdateRequest(destinationPreferences, availableDates);
+    }
+
 }

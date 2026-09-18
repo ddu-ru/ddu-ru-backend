@@ -10,6 +10,7 @@ import com.dduru.gildongmu.profile.domain.enums.Gender;
 import com.dduru.gildongmu.recommendation.domain.UserRecommendationDestinationPreference;
 import com.dduru.gildongmu.recommendation.domain.enums.RecommendationDestinationPreferenceType;
 import com.dduru.gildongmu.recommendation.dto.request.DestinationPreferenceRequest;
+import com.dduru.gildongmu.recommendation.dto.request.AvailableDateRequest;
 import com.dduru.gildongmu.recommendation.dto.request.TravelPreferenceUpdateRequest;
 import com.dduru.gildongmu.recommendation.repository.UserRecommendationDestinationPreferenceRepository;
 import com.dduru.gildongmu.recommendation.service.TravelPreferenceService;
@@ -120,7 +121,7 @@ class HomeDestinationTripIntegrationTest {
     }
 
     private void setPreferences(Destination... destinations) {
-        preferences.updateTravelPreferences(viewer.getId(), new TravelPreferenceUpdateRequest(
+        preferences.updateTravelPreferences(viewer.getId(), testRequest(
                 java.util.Arrays.stream(destinations).map(d -> new DestinationPreferenceRequest(
                         RecommendationDestinationPreferenceType.CITY, null, d.getId())).toList(), List.of()));
     }
@@ -153,4 +154,11 @@ class HomeDestinationTripIntegrationTest {
         em.persist(destination);
         return destination;
     }
+    private TravelPreferenceUpdateRequest testRequest(
+            List<DestinationPreferenceRequest> destinationPreferences,
+            List<AvailableDateRequest> availableDates
+    ) {
+        return new TravelPreferenceUpdateRequest(destinationPreferences, availableDates);
+    }
+
 }
