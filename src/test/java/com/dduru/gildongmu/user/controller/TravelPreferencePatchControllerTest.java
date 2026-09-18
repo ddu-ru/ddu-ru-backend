@@ -3,7 +3,7 @@ package com.dduru.gildongmu.user.controller;
 import com.dduru.gildongmu.common.annotation.CurrentUser;
 import com.dduru.gildongmu.common.exception.GlobalExceptionHandler;
 import com.dduru.gildongmu.post.service.PostQueryService;
-import com.dduru.gildongmu.recommendation.dto.request.TravelPreferencePatchRequest;
+import com.dduru.gildongmu.recommendation.dto.request.TravelPreferenceUpdateRequest;
 import com.dduru.gildongmu.recommendation.service.TravelPreferenceService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,7 +21,6 @@ import org.springframework.web.method.support.ModelAndViewContainer;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup;
 
@@ -54,10 +53,10 @@ class TravelPreferencePatchControllerTest {
                                 {"destinationPreferences":[{"type":"CITY","destinationId":2},{"type":"CITY","destinationId":1}]}
                                 """))
                 .andExpect(status().isNoContent());
-        var captor = ArgumentCaptor.forClass(TravelPreferencePatchRequest.class);
-        verify(service).patchTravelPreferences(eq(10L), captor.capture());
-        assertThat(captor.getValue().getAvailableDates()).isNull();
-        assertThat(captor.getValue().getDestinationPreferences()).extracting("destinationId").containsExactly(2L, 1L);
+        var captor = ArgumentCaptor.forClass(TravelPreferenceUpdateRequest.class);
+        verify(service).updateTravelPreferences(eq(10L), captor.capture());
+        assertThat(captor.getValue().availableDates()).isNull();
+        assertThat(captor.getValue().destinationPreferences()).extracting("destinationId").containsExactly(2L, 1L);
     }
 
     @ParameterizedTest
@@ -69,10 +68,37 @@ class TravelPreferencePatchControllerTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"{\"destinationPreferences\":null}", "{\"availableDates\":null}",
-            "{\"destinationPreferences\":[null]}", "{\"destinationPreferences\":[{}]}",
-            "{\"availableDates\":[null]}", "{\"availableDates\":[{}]}",
-            "{\"destinationPreferences\":[{\"type\":\"COUNTRY\"},{\"type\":\"COUNTRY\"},{\"type\":\"COUNTRY\"},{\"type\":\"COUNTRY\"}]}"})
+    @ValueSource(strings = {"{}", "{\"destinationPreferences\":null}", "{\"availableDates\":null}",
+            "{\"destinationPreferences\":null,\"availableDates\":null}"})
+    void omissionAndExplicitNullLeaveBothListsUnchanged(String body) throws Exception {
+        mvc.perform(patch("/api/v1/users/me/travel-preferences").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isNoContent());
+        var captor = ArgumentCaptor.forClass(TravelPreferenceUpdateRequest.class);
+        verify(service).updateTravelPreferences(eq(10L), captor.capture());
+        assertThat(captor.getValue().destinationPreferences()).isNull();
+        assertThat(captor.getValue().availableDates()).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"{\"destinationPreferences\":[],\"availableDates\":null}",
+            "{\"destinationPreferences\":null,\"availableDates\":[]}"})
+    void explicitNullPreservesOneListWhileEmptyArrayClearsTheOther(String body) throws Exception {
+        mvc.perform(patch("/api/v1/users/me/travel-preferences").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isNoContent());
+        var captor = ArgumentCaptor.forClass(TravelPreferenceUpdateRequest.class);
+        verify(service).updateTravelPreferences(eq(10L), captor.capture());
+        if (body.contains("\"destinationPreferences\":[]")) {
+            assertThat(captor.getValue().destinationPreferences()).isEmpty();
+            assertThat(captor.getValue().availableDates()).isNull();
+        } else {
+            assertThat(captor.getValue().destinationPreferences()).isNull();
+            assertThat(captor.getValue().availableDates()).isEmpty();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"{\"destinationPreferences\":[null]}", "{\"destinationPreferences\":[{}]}",
+            "{\"availableDates\":[null]}", "{\"availableDates\":[{}]}"})
     void invalidPatchReturns400WithoutCallingService(String body) throws Exception {
         mvc.perform(patch("/api/v1/users/me/travel-preferences").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isBadRequest());
@@ -80,10 +106,18 @@ class TravelPreferencePatchControllerTest {
     }
 
     @Test
-    void putStillRequiresBothLists() throws Exception {
-        mvc.perform(put("/api/v1/users/me/travel-preferences").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"destinationPreferences\":[]}"))
+    void moreThanThreeDestinationsReturns400BeforeDeduplication() throws Exception {
+        mvc.perform(patch("/api/v1/users/me/travel-preferences").contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"destinationPreferences":[
+                                  {"type":"COUNTRY","countryCode":"JP"},
+                                  {"type":"COUNTRY","countryCode":"JP"},
+                                  {"type":"COUNTRY","countryCode":"JP"},
+                                  {"type":"COUNTRY","countryCode":"JP"}
+                                ]}
+                                """))
                 .andExpect(status().isBadRequest());
         verifyNoInteractions(service);
     }
+
 }
