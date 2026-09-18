@@ -32,7 +32,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 @Service
 @RequiredArgsConstructor
@@ -48,14 +47,7 @@ public class TravelPreferenceService {
         List<UserRecommendationDestinationPreference> destinationPreferences =
                 destinationPreferenceRepository.findAllByUserIdWithDestination(userId);
 
-        Set<String> countryCodes = destinationPreferences.stream()
-                .filter(preference -> preference.getPreferenceType() == RecommendationDestinationPreferenceType.COUNTRY)
-                .map(UserRecommendationDestinationPreference::getCountryCode)
-                .collect(Collectors.toSet());
-
-        Map<String, String> countryNameByCode = countryCodes.isEmpty() ? Map.of() :
-                destinationRepository.findByCountryCodeIn(countryCodes).stream()
-                        .collect(Collectors.toMap(Destination::getCountryCode, Destination::getCountryName, (existing, replacement) -> existing));
+        Map<String, String> countryNameByCode = findCountryNamesByCode(destinationPreferences);
 
         List<DestinationPreferenceResponse> destinationPreferenceResponses = destinationPreferences.stream()
                 .map(preference -> DestinationPreferenceResponse.from(preference, countryNameByCode))
@@ -81,11 +73,35 @@ public class TravelPreferenceService {
             replaceDestinationPreferences(user, destinations);
         }
         if (dates != null) {
-            availableDateRepository.deleteAllByUserId(user.getId());
-            availableDateRepository.saveAll(dates.stream()
-                    .map(date -> UserRecommendationAvailableDate.of(user, date.startDate(), date.endDate()))
-                    .toList());
+            replaceAvailableDates(user, dates);
         }
+    }
+
+    private Map<String, String> findCountryNamesByCode(
+            List<UserRecommendationDestinationPreference> destinationPreferences
+    ) {
+        Set<String> countryCodes = destinationPreferences.stream()
+                .filter(preference -> preference.getPreferenceType() == RecommendationDestinationPreferenceType.COUNTRY)
+                .map(UserRecommendationDestinationPreference::getCountryCode)
+                .collect(Collectors.toSet());
+
+        if (countryCodes.isEmpty()) {
+            return Map.of();
+        }
+
+        return destinationRepository.findByCountryCodeIn(countryCodes).stream()
+                .collect(Collectors.toMap(
+                        Destination::getCountryCode,
+                        Destination::getCountryName,
+                        (existing, replacement) -> existing
+                ));
+    }
+
+    private void replaceAvailableDates(User user, List<AvailableDateRequest> dates) {
+        availableDateRepository.deleteAllByUserId(user.getId());
+        availableDateRepository.saveAll(dates.stream()
+                .map(date -> UserRecommendationAvailableDate.of(user, date.startDate(), date.endDate()))
+                .toList());
     }
 
     private void replaceDestinationPreferences(User user, List<DestinationPreferenceRequest> destinationPreferenceRequests) {
@@ -105,11 +121,14 @@ public class TravelPreferenceService {
 
         destinationPreferenceRepository.deleteAllByUserId(user.getId());
 
-        destinationPreferenceRepository.saveAll(
-                IntStream.range(0, normalizedDestinationPreferences.size())
-                        .mapToObj(index -> toDestinationPreferenceEntity(normalizedDestinationPreferences.get(index), user, destinationById, index + 1))
-                        .toList()
-        );
+        // 순서 부여
+        List<UserRecommendationDestinationPreference> preferences = new ArrayList<>();
+        for (int i = 0; i < normalizedDestinationPreferences.size(); i++) {
+            int rank = i + 1;
+            DestinationPreferenceRequest preference = normalizedDestinationPreferences.get(i);
+            preferences.add(toDestinationPreferenceEntity(preference, user, destinationById, rank));
+        }
+        destinationPreferenceRepository.saveAll(preferences);
     }
 
     private void validateAvailableDates(List<AvailableDateRequest> availableDateRequests) {
