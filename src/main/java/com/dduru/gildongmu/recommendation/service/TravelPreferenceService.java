@@ -13,7 +13,6 @@ import com.dduru.gildongmu.recommendation.domain.enums.RecommendationDestination
 import com.dduru.gildongmu.recommendation.dto.request.AvailableDateRequest;
 import com.dduru.gildongmu.recommendation.dto.request.DestinationPreferenceRequest;
 import com.dduru.gildongmu.recommendation.dto.request.TravelPreferenceUpdateRequest;
-import com.dduru.gildongmu.recommendation.dto.request.TravelPreferencePatchRequest;
 import com.dduru.gildongmu.recommendation.dto.response.AvailableDateResponse;
 import com.dduru.gildongmu.recommendation.dto.response.DestinationPreferenceResponse;
 import com.dduru.gildongmu.recommendation.dto.response.TravelPreferenceResponse;
@@ -71,19 +70,9 @@ public class TravelPreferenceService {
 
     @Transactional
     public void updateTravelPreferences(Long userId, TravelPreferenceUpdateRequest request) {
-        saveTravelPreferences(userId, request.destinationPreferences(), request.availableDates());
-    }
+        var destinations = request.destinationPreferences();
+        var dates = request.availableDates();
 
-    @Transactional
-    public void patchTravelPreferences(Long userId, TravelPreferencePatchRequest request) {
-        saveTravelPreferences(userId, request.getDestinationPreferences(), request.getAvailableDates());
-    }
-
-    private void saveTravelPreferences(Long userId, List<DestinationPreferenceRequest> destinations,
-                                       List<AvailableDateRequest> dates) {
-        if (destinations != null && destinations.size() > 3) {
-            throw new InvalidDestinationPreferenceException();
-        }
         if (dates != null) {
             validateAvailableDates(dates);
         }
@@ -92,7 +81,7 @@ public class TravelPreferenceService {
             replaceDestinationPreferences(user, destinations);
         }
         if (dates != null) {
-            availableDateRepository.deleteAllByUserId(userId);
+            availableDateRepository.deleteAllByUserId(user.getId());
             availableDateRepository.saveAll(dates.stream()
                     .map(date -> UserRecommendationAvailableDate.of(user, date.startDate(), date.endDate()))
                     .toList());
