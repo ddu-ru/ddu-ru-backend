@@ -159,6 +159,20 @@ class HomeControllerTest {
     }
 
     @Test
+    @DisplayName("진행·예정 여정이 없는 회원은 해당 홈 섹션이 비활성화된다")
+    void retrieveHome_memberWithoutCurrentOrUpcomingJourney() throws Exception {
+        MockMvc mockMvc = mockMvcWithUser(10L, onboardingRepository(false),
+                DailyMateRecommendationResult.available(1L, MateRecommendationBatchStatus.EMPTY, null), false);
+
+        mockMvc.perform(get(HomeEndpoints.HOME))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.sections[0].key").value("UPCOMING_TRIP"))
+                .andExpect(jsonPath("$.data.sections[0].enabled").value(false))
+                .andExpect(jsonPath("$.data.sections[0].disabledReason")
+                        .value("NO_CURRENT_OR_UPCOMING_JOURNEY"));
+    }
+
+    @Test
     @DisplayName("회원의 온보딩 정보가 없으면 not found 예외가 발생한다")
     void retrieveHome_memberOnboardingNotFound() throws Exception {
         UserOnboardingRepository userOnboardingRepository = mock(UserOnboardingRepository.class);
@@ -421,16 +435,35 @@ class HomeControllerTest {
             UserOnboardingRepository userOnboardingRepository,
             DailyMateRecommendationResult dailyResult
     ) {
+        return mockMvcWithUser(userId, userOnboardingRepository, dailyResult, true);
+    }
+
+    private MockMvc mockMvcWithUser(
+            Long userId,
+            UserOnboardingRepository userOnboardingRepository,
+            DailyMateRecommendationResult dailyResult,
+            boolean hasCurrentOrUpcomingJourney
+    ) {
         DailyMateRecommendationService dailyService = mock(DailyMateRecommendationService.class);
         when(dailyService.getOrCreate(userId)).thenReturn(dailyResult);
         return mockMvcWithQueryService(userId, userOnboardingRepository,
-                new DailyMateRecommendationQueryService(dailyService, mock(VisibleMateRecommendationCardQueryService.class)));
+                new DailyMateRecommendationQueryService(dailyService, mock(VisibleMateRecommendationCardQueryService.class)),
+                hasCurrentOrUpcomingJourney);
     }
 
     private MockMvc mockMvcWithQueryService(
             Long userId,
             UserOnboardingRepository userOnboardingRepository,
             DailyMateRecommendationQueryService dailyMateRecommendationQueryService
+    ) {
+        return mockMvcWithQueryService(userId, userOnboardingRepository, dailyMateRecommendationQueryService, true);
+    }
+
+    private MockMvc mockMvcWithQueryService(
+            Long userId,
+            UserOnboardingRepository userOnboardingRepository,
+            DailyMateRecommendationQueryService dailyMateRecommendationQueryService,
+            boolean hasCurrentOrUpcomingJourney
     ) {
         TimeProvider timeProvider = new TimeProvider(Clock.fixed(
                 LocalDateTime.of(2026, 5, 13, 12, 30)
@@ -473,9 +506,11 @@ class HomeControllerTest {
                 LocalDate.of(2026, 5, 13),
                 Pageable.ofSize(1)
         )).thenReturn(List.of(journey));
+        when(journeyRepository.existsCurrentOrUpcomingJourney(userId, LocalDate.of(2026, 5, 13)))
+                .thenReturn(hasCurrentOrUpcomingJourney);
 
         return standaloneSetup(new HomeController(
-                new HomeOverviewQueryService(onboardingService, mock(UserRecommendationDestinationPreferenceRepository.class)),
+                new HomeOverviewQueryService(onboardingService, preferenceRepository, journeyRepository, timeProvider),
                 new HomeTripQueryService(
                         timeProvider,
                         profileRepository,

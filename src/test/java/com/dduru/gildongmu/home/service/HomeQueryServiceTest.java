@@ -64,10 +64,11 @@ class HomeQueryServiceTest {
     private HomeTripQueryService tripQueryService;
     private HomeRecommendationQueryService recommendationQueryService;
     private HomeSuperHostQueryService superHostQueryService;
+    private TimeProvider timeProvider;
 
     @BeforeEach
     void setUp() {
-        TimeProvider timeProvider = new TimeProvider(Clock.fixed(
+        timeProvider = new TimeProvider(Clock.fixed(
                 NOW.atZone(KoreaTime.ZONE_ID).toInstant(),
                 KoreaTime.ZONE_ID
         ));
@@ -79,7 +80,9 @@ class HomeQueryServiceTest {
         ObjectMapper objectMapper = new ObjectMapper();
 
         preferenceRepository = mock(UserRecommendationDestinationPreferenceRepository.class);
-        overviewQueryService = new HomeOverviewQueryService(onboardingService, preferenceRepository);
+        overviewQueryService = new HomeOverviewQueryService(
+                onboardingService, preferenceRepository, journeyRepository, timeProvider
+        );
         popularDestinationQueryService = new HomePopularDestinationQueryService(timeProvider);
         tripQueryService = new HomeTripQueryService(
                 timeProvider,
@@ -120,11 +123,24 @@ class HomeQueryServiceTest {
             assertThat(overviewQueryService.retrieve(10L).userAccessStatus())
                     .isEqualTo(UserAccessStatus.MEMBER_SURVEY_COMPLETED);
         }
+
+        @Test
+        @DisplayName("진행·예정 여정이 없으면 해당 섹션을 비활성화한다")
+        void upcomingTripRequiresCurrentOrUpcomingJourney() {
+            when(userOnboardingRepository.getByUserIdOrThrow(10L)).thenReturn(onboarding(false));
+            when(journeyRepository.existsCurrentOrUpcomingJourney(10L, NOW.toLocalDate())).thenReturn(false);
+
+            var disabled = overviewQueryService.retrieve(10L).sections().get(0);
+
+            assertThat(disabled.enabled()).isFalse();
+            assertThat(disabled.disabledReason().name()).isEqualTo("NO_CURRENT_OR_UPCOMING_JOURNEY");
+        }
     }
 
     @Test
     void destinationSectionRequiresPreferencesNotMatchingPosts() {
         when(userOnboardingRepository.getByUserIdOrThrow(10L)).thenReturn(onboarding(false));
+        when(journeyRepository.existsCurrentOrUpcomingJourney(10L, NOW.toLocalDate())).thenReturn(true);
         var disabled = overviewQueryService.retrieve(10L).sections().get(4);
         assertThat(disabled.enabled()).isFalse();
         assertThat(disabled.disabledReason().name()).isEqualTo("DESTINATION_PREFERENCE_REQUIRED");

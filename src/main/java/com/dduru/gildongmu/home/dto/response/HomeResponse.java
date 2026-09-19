@@ -29,6 +29,7 @@ public record HomeResponse(
     public enum DisabledReason {
         LOGIN_REQUIRED,
         SURVEY_REQUIRED,
-        DESTINATION_PREFERENCE_REQUIRED
+        DESTINATION_PREFERENCE_REQUIRED,
+        NO_CURRENT_OR_UPCOMING_JOURNEY
     }
 }

@@ -88,6 +88,10 @@ GET /api/v1/home/same-age-trips
 
 프론트는 홈 진입 시 `GET /api/v1/home`을 먼저 호출하고, 응답에 포함된 섹션을 기준으로 각 섹션 API를 병렬 호출합니다.
 
+`UPCOMING_TRIP`은 활성 참여 중이며 게시글이 삭제되지 않았고 종료일이 오늘 이후인 여정이 있을 때만
+활성화됩니다. 여정이 없으면 `enabled=false`, `disabledReason=NO_CURRENT_OR_UPCOMING_JOURNEY`를 반환하며,
+프론트는 진행·예정 여행 API를 호출하지 않습니다.
+
 ```text
 Home Screen
   -> GET /api/v1/home

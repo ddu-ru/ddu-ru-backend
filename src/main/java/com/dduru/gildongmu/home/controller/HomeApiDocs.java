@@ -29,6 +29,7 @@ public interface HomeApiDocs {
                     실제 섹션 데이터는 sections[].endpoint로 내려가는 API를 클라이언트가 별도로 호출합니다.
                     모든 홈 섹션 데이터는 /api/v1/home/* 홈 전용 API로 조회합니다.
                     enabled=false인 섹션은 클라이언트가 호출하지 않고 disabledReason을 기준으로 UI를 처리합니다.
+                    진행·예정 여행은 활성 참여 중이고 종료일이 지나지 않은 여정이 있을 때만 활성화됩니다.
                     """
     )
     @ApiResponse(responseCode = "200", description = "조회 성공")
