@@ -26,10 +26,12 @@ public interface PostApiDocs {
     @Operation(summary = "게시글 목록 조회", description = """
             필터 조건에 따라 게시글 목록을 조회합니다.
 
-            recruitmentStatus 미전달 시 모집 중(OPEN + 인원 미달) 게시글만 반환합니다.
+            recruitmentStatus 미전달 시 모집 상태와 관계없이 삭제되지 않은 모든 게시글을 반환합니다.
             - OPEN: 모집 중 (status=OPEN, 인원 미달)
             - DEADLINE_NEAR: 마감 임박 (모집 중 + 모집 마감일이 오늘부터 3일 이내)
             - CLOSED: 모집 완료 (인원 마감 또는 호스트 수동 마감)
+            countryCode로 국가 단위 여행지를 필터링할 수 있습니다.
+            minRecruitCapacity와 maxRecruitCapacity로 모집 정원 범위를 필터링할 수 있습니다.
             """)
     @ApiResponse(responseCode = "200", description = "조회 성공")
     ResponseEntity<ApiResult<PostListResponse>> retrievePosts(@ParameterObject PostListRequest request, @Parameter(hidden = true) Long userId);

@@ -45,6 +45,8 @@ public class PostRepositoryImpl implements PostRepositoryCustom {
                         genderCondition(request.preferredGender()),
                         ageRangeCondition(request.minAge(), request.maxAge()),
                         destinationCondition(request.destinationId()),
+                        countryCondition(request.countryCode()),
+                        recruitCapacityCondition(request.minRecruitCapacity(), request.maxRecruitCapacity()),
                         recruitmentStatusCondition(request.recruitmentStatus(), today),
                         companionTypeCondition(request.companionType())
                 )
@@ -164,10 +166,28 @@ public class PostRepositoryImpl implements PostRepositoryCustom {
         return post.destination.id.eq(destinationId);
     }
 
+    private BooleanExpression countryCondition(String countryCode) {
+        if (countryCode == null) return null;
+        return destination.countryCode.eq(countryCode);
+    }
+
+    private BooleanExpression recruitCapacityCondition(Integer minRecruitCapacity, Integer maxRecruitCapacity) {
+        if (minRecruitCapacity == null && maxRecruitCapacity == null) return null;
+        BooleanExpression condition = null;
+        if (minRecruitCapacity != null) {
+            condition = post.recruitCapacity.goe(minRecruitCapacity);
+        }
+        if (maxRecruitCapacity != null) {
+            BooleanExpression maxCondition = post.recruitCapacity.loe(maxRecruitCapacity);
+            condition = condition == null ? maxCondition : condition.and(maxCondition);
+        }
+        return condition;
+    }
+
     private BooleanExpression recruitmentStatusCondition(RecruitmentStatusFilter status, LocalDate today) {
         BooleanExpression openAndNotFull = post.status.eq(PostStatus.OPEN)
                 .and(post.recruitCount.lt(post.recruitCapacity));
-        if (status == null) return openAndNotFull;
+        if (status == null) return null;
         return switch (status) {
             case OPEN -> openAndNotFull;
             case DEADLINE_NEAR -> openAndNotFull

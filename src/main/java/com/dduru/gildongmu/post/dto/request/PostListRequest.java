@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDate;
+import java.util.Locale;
 
 public record PostListRequest(
         @Schema(description = "다음 페이지 조회용 커서 게시글 ID. 첫 페이지에서는 생략합니다.", example = "120", nullable = true)
@@ -30,7 +31,13 @@ public record PostListRequest(
         Integer maxAge,
         @Schema(description = "여행지 ID 필터", example = "1", nullable = true)
         Long destinationId,
-        @Schema(description = "모집 상태 필터. 미전달 시 모집 중 게시글만 반환합니다.", example = "OPEN", nullable = true)
+        @Schema(description = "국가 코드 필터", example = "JP", nullable = true)
+        String countryCode,
+        @Schema(description = "모집 정원 최소 인원 필터", example = "2", nullable = true)
+        Integer minRecruitCapacity,
+        @Schema(description = "모집 정원 최대 인원 필터", example = "4", nullable = true)
+        Integer maxRecruitCapacity,
+        @Schema(description = "모집 상태 필터. 미전달 시 모든 모집 상태의 게시글을 반환합니다.", example = "OPEN", nullable = true)
         RecruitmentStatusFilter recruitmentStatus,
         @Schema(description = "동행 방식 필터", example = "FULL", allowableValues = {"FULL", "PARTIAL", "MEAL", "UNSPECIFIED"}, nullable = true)
         CompanionType companionType,
@@ -41,5 +48,8 @@ public record PostListRequest(
         if (size == null || size <= 0 || size > 50) size = 10;
         if (sort == null) sort = PostSortType.LATEST;
         if (keyword != null) keyword = keyword.isBlank() ? null : keyword.strip();
+        if (countryCode != null) {
+            countryCode = countryCode.isBlank() ? null : countryCode.strip().toUpperCase(Locale.ROOT);
+        }
     }
 }

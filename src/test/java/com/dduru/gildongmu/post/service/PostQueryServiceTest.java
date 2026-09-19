@@ -659,11 +659,11 @@ class PostQueryServiceTest {
     }
 
     private PostListRequest listRequest(int size, Long cursor) {
-        return new PostListRequest(cursor, null, size, null, null, null, null, null, null, null, null, null, PostSortType.LATEST);
+        return new PostListRequest(cursor, null, size, null, null, null, null, null, null, null, null, null, null, null, null, PostSortType.LATEST);
     }
 
     private PostListRequest listRequestWithSort(int size, Long cursor, Integer cursorValue, PostSortType sort) {
-        return new PostListRequest(cursor, cursorValue, size, null, null, null, null, null, null, null, null, null, sort);
+        return new PostListRequest(cursor, cursorValue, size, null, null, null, null, null, null, null, null, null, null, null, null, sort);
     }
 
     private Post createPost(Long postId) {
