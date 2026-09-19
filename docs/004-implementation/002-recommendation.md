@@ -288,6 +288,8 @@ matchPercentage =
 | `mate_recommendations` | 묶음 안의 추천 여행방, 추천 순위, 점수, 이유 |
 | `mate_recommendation_passes` | 사용자가 패스한 추천 여행방 |
 
+`user_recommendation_destination_preferences`는 `preference_rank`로 사용자별 1~3순위를 저장합니다. 최대 3개 요청의 배열 순서로 순위를 부여하고 `(user_id, preference_rank)` 유일 제약을 적용합니다. 홈 같은 여행지 섹션은 1순위만 사용하지만 메이트 추천은 모든 선호를 OR로 적용합니다. 상세 계약은 [선호 여행지 순위와 홈 동행](./007-home-destination-preference.md)을 참고합니다.
+
 `user_recommendation_destination_preferences`는 중복 문자열 키를 저장하지 않습니다. `COUNTRY`는 `(user_id, preference_type, country_code)`, `CITY`는 `(user_id, preference_type, destination_id)` unique key로 중복을 막습니다.
 
 선호 여행지 조회는 사용자 기준으로 좁히는 흐름을 기본으로 하므로 `country_code`, `destination_id` 단독 조회 인덱스는 두지 않습니다. #298에서 실제 후보 조회 쿼리와 실행 계획을 확인한 뒤 필요한 조회 최적화 인덱스만 추가합니다.

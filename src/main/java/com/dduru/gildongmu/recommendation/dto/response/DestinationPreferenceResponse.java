@@ -20,7 +20,9 @@ public record DestinationPreferenceResponse(
         @Schema(description = "도시 ID (CITY 타입만)", example = "1")
         Long destinationId,
         @Schema(description = "도시명 (CITY 타입만)", example = "도쿄")
-        String city
+        String city,
+        @Schema(description = "선호 순위 (1~3)", example = "1")
+        int preferenceRank
 ) {
     public static DestinationPreferenceResponse from(
             UserRecommendationDestinationPreference preference,
@@ -32,7 +34,8 @@ public record DestinationPreferenceResponse(
                     preference.getCountryCode(),
                     countryNameByCode.get(preference.getCountryCode()),
                     null,
-                    null
+                    null,
+                    preference.getPreferenceRank()
             );
         }
         Destination dest = preference.getDestination();
@@ -41,7 +44,8 @@ public record DestinationPreferenceResponse(
                 dest.getCountryCode(),
                 dest.getCountryName(),
                 dest.getId(),
-                dest.getCity()
+                dest.getCity(),
+                preference.getPreferenceRank()
         );
     }
 }

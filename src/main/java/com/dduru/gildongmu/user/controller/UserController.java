@@ -52,7 +52,7 @@ public class UserController implements UserApiDocs {
     }
 
     @Override
-    @PutMapping("/travel-preferences")
+    @PatchMapping("/travel-preferences")
     public ResponseEntity<ApiResult<Void>> updateTravelPreferences(
             @CurrentUser Long userId,
             @Valid @RequestBody TravelPreferenceUpdateRequest request

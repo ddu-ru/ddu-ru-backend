@@ -141,7 +141,7 @@ class MateRecommendationFlowIntegrationTest {
 
         Destination jeju = destination("KR", "대한민국", "제주");
         Destination busan = destination("KR", "대한민국", "부산");
-        destinationPreferenceRepository.save(UserRecommendationDestinationPreference.city(applicant, jeju));
+        destinationPreferenceRepository.save(UserRecommendationDestinationPreference.city(applicant, jeju, 1));
         availableDateRepository.save(UserRecommendationAvailableDate.of(
                 applicant,
                 TODAY.plusDays(5),

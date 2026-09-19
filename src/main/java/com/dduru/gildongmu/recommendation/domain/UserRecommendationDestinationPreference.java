@@ -6,6 +6,7 @@ import com.dduru.gildongmu.recommendation.domain.enums.RecommendationDestination
 import com.dduru.gildongmu.recommendation.exception.InvalidDestinationPreferenceException;
 import com.dduru.gildongmu.user.domain.User;
 import jakarta.persistence.*;
+import org.hibernate.annotations.Check;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -14,10 +15,12 @@ import lombok.NoArgsConstructor;
 @Table(
         name = "user_recommendation_destination_preferences",
         uniqueConstraints = {
+                @UniqueConstraint(name = "uk_recommendation_destination_rank", columnNames = {"user_id", "preference_rank"}),
                 @UniqueConstraint(name = "uk_recommendation_destination_country", columnNames = {"user_id", "preference_type", "country_code"}),
                 @UniqueConstraint(name = "uk_recommendation_destination_city", columnNames = {"user_id", "preference_type", "destination_id"})
         }
 )
+@Check(constraints = "preference_rank BETWEEN 1 AND 3")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class UserRecommendationDestinationPreference extends BaseTimeEntity {
@@ -43,12 +46,20 @@ public class UserRecommendationDestinationPreference extends BaseTimeEntity {
     @JoinColumn(name = "destination_id")
     private Destination destination;
 
+    @Column(name = "preference_rank", nullable = false)
+    private int preferenceRank;
+
     private UserRecommendationDestinationPreference(
             User user,
             RecommendationDestinationPreferenceType preferenceType,
             String countryCode,
-            Destination destination
+            Destination destination,
+            int preferenceRank
     ) {
+        if (preferenceRank < 1 || preferenceRank > 3) {
+            throw new InvalidDestinationPreferenceException();
+        }
+        this.preferenceRank = preferenceRank;
         validatePreferenceValue(preferenceType, countryCode, destination);
         this.user = user;
         this.preferenceType = preferenceType;
@@ -56,21 +67,23 @@ public class UserRecommendationDestinationPreference extends BaseTimeEntity {
         this.destination = destination;
     }
 
-    public static UserRecommendationDestinationPreference country(User user, String countryCode) {
+    public static UserRecommendationDestinationPreference country(User user, String countryCode, int preferenceRank) {
         return new UserRecommendationDestinationPreference(
                 user,
                 RecommendationDestinationPreferenceType.COUNTRY,
                 countryCode,
-                null
+                null,
+                preferenceRank
         );
     }
 
-    public static UserRecommendationDestinationPreference city(User user, Destination destination) {
+    public static UserRecommendationDestinationPreference city(User user, Destination destination, int preferenceRank) {
         return new UserRecommendationDestinationPreference(
                 user,
                 RecommendationDestinationPreferenceType.CITY,
                 null,
-                destination
+                destination,
+                preferenceRank
         );
     }
 

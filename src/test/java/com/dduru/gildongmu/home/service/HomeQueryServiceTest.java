@@ -35,6 +35,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.data.domain.Pageable;
 
+import com.dduru.gildongmu.recommendation.repository.UserRecommendationDestinationPreferenceRepository;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -59,6 +60,7 @@ class HomeQueryServiceTest {
     private JourneyRepository journeyRepository;
     private JourneyScheduleRepository journeyScheduleRepository;
     private DailyMateRecommendationQueryService dailyMateRecommendationQueryService;
+    private UserRecommendationDestinationPreferenceRepository preferenceRepository;
     private HomeOverviewQueryService overviewQueryService;
     private HomePopularDestinationQueryService popularDestinationQueryService;
     private HomeTripQueryService tripQueryService;
@@ -78,7 +80,8 @@ class HomeQueryServiceTest {
         dailyMateRecommendationQueryService = mock(DailyMateRecommendationQueryService.class);
         ObjectMapper objectMapper = new ObjectMapper();
 
-        overviewQueryService = new HomeOverviewQueryService(onboardingService);
+        preferenceRepository = mock(UserRecommendationDestinationPreferenceRepository.class);
+        overviewQueryService = new HomeOverviewQueryService(onboardingService, preferenceRepository);
         popularDestinationQueryService = new HomePopularDestinationQueryService(timeProvider);
         tripQueryService = new HomeTripQueryService(
                 timeProvider,
@@ -117,6 +120,18 @@ class HomeQueryServiceTest {
             assertThat(overviewQueryService.retrieve(10L).userAccessStatus())
                     .isEqualTo(UserAccessStatus.MEMBER_SURVEY_COMPLETED);
         }
+    }
+
+    @Test
+    void destinationSectionRequiresPreferencesNotMatchingPosts() {
+        when(userOnboardingRepository.getByUserIdOrThrow(10L)).thenReturn(onboarding(false));
+        var disabled = overviewQueryService.retrieve(10L).sections().get(4);
+        assertThat(disabled.enabled()).isFalse();
+        assertThat(disabled.disabledReason().name()).isEqualTo("DESTINATION_PREFERENCE_REQUIRED");
+        when(preferenceRepository.existsByUser_Id(10L)).thenReturn(true);
+        var enabled = overviewQueryService.retrieve(10L).sections().get(4);
+        assertThat(enabled.enabled()).isTrue();
+        assertThat(enabled.disabledReason()).isNull();
     }
 
     @Nested
@@ -189,13 +204,6 @@ class HomeQueryServiceTest {
             verify(journeyScheduleRepository).countByJourneyIdAndIsDeletedFalse(102L);
         }
 
-        @Test
-        @DisplayName("온보딩 정보가 있으면 같은 여행지 여행을 조회한다")
-        void sameDestinationTrips() {
-            when(userOnboardingRepository.getByUserIdOrThrow(10L)).thenReturn(onboarding(false));
-
-            assertThat(tripQueryService.retrieveSameDestinationTrips(10L)).hasSize(3);
-        }
     }
 
     @Nested

@@ -1,5 +1,6 @@
 package com.dduru.gildongmu.recommendation.service;
 
+import com.dduru.gildongmu.auth.exception.UserNotFoundException;
 import com.dduru.gildongmu.destination.domain.Destination;
 import com.dduru.gildongmu.destination.exception.DestinationNotFoundException;
 import com.dduru.gildongmu.recommendation.exception.DuplicateAvailableDateException;
@@ -46,14 +47,7 @@ public class TravelPreferenceService {
         List<UserRecommendationDestinationPreference> destinationPreferences =
                 destinationPreferenceRepository.findAllByUserIdWithDestination(userId);
 
-        Set<String> countryCodes = destinationPreferences.stream()
-                .filter(preference -> preference.getPreferenceType() == RecommendationDestinationPreferenceType.COUNTRY)
-                .map(UserRecommendationDestinationPreference::getCountryCode)
-                .collect(Collectors.toSet());
-
-        Map<String, String> countryNameByCode = countryCodes.isEmpty() ? Map.of() :
-                destinationRepository.findByCountryCodeIn(countryCodes).stream()
-                        .collect(Collectors.toMap(Destination::getCountryCode, Destination::getCountryName, (existing, replacement) -> existing));
+        Map<String, String> countryNameByCode = findCountryNamesByCode(destinationPreferences);
 
         List<DestinationPreferenceResponse> destinationPreferenceResponses = destinationPreferences.stream()
                 .map(preference -> DestinationPreferenceResponse.from(preference, countryNameByCode))
@@ -68,11 +62,49 @@ public class TravelPreferenceService {
 
     @Transactional
     public void updateTravelPreferences(Long userId, TravelPreferenceUpdateRequest request) {
-        validateAvailableDates(request.availableDates());
+        var destinations = request.destinationPreferences();
+        var dates = request.availableDates();
 
-        User user = userRepository.getByIdOrThrow(userId);
-        List<DestinationPreferenceRequest> destinationPreferenceRequests = request.destinationPreferences();
+        if (dates != null) {
+            validateAvailableDates(dates);
+        }
+        User user = userRepository.findByIdWithLock(userId).orElseThrow(UserNotFoundException::new);
+        if (destinations != null) {
+            replaceDestinationPreferences(user, destinations);
+        }
+        if (dates != null) {
+            replaceAvailableDates(user, dates);
+        }
+    }
 
+    private Map<String, String> findCountryNamesByCode(
+            List<UserRecommendationDestinationPreference> destinationPreferences
+    ) {
+        Set<String> countryCodes = destinationPreferences.stream()
+                .filter(preference -> preference.getPreferenceType() == RecommendationDestinationPreferenceType.COUNTRY)
+                .map(UserRecommendationDestinationPreference::getCountryCode)
+                .collect(Collectors.toSet());
+
+        if (countryCodes.isEmpty()) {
+            return Map.of();
+        }
+
+        return destinationRepository.findByCountryCodeIn(countryCodes).stream()
+                .collect(Collectors.toMap(
+                        Destination::getCountryCode,
+                        Destination::getCountryName,
+                        (existing, replacement) -> existing
+                ));
+    }
+
+    private void replaceAvailableDates(User user, List<AvailableDateRequest> dates) {
+        availableDateRepository.deleteAllByUserId(user.getId());
+        availableDateRepository.saveAll(dates.stream()
+                .map(date -> UserRecommendationAvailableDate.of(user, date.startDate(), date.endDate()))
+                .toList());
+    }
+
+    private void replaceDestinationPreferences(User user, List<DestinationPreferenceRequest> destinationPreferenceRequests) {
         List<Long> cityDestinationIds = destinationPreferenceRequests.stream()
                 .filter(preferenceRequest -> preferenceRequest.type() == RecommendationDestinationPreferenceType.CITY)
                 .map(DestinationPreferenceRequest::destinationId)
@@ -87,20 +119,16 @@ public class TravelPreferenceService {
 
         List<DestinationPreferenceRequest> normalizedDestinationPreferences = deduplicateDestinationPreferences(destinationPreferenceRequests);
 
-        destinationPreferenceRepository.deleteAllByUserId(userId);
-        availableDateRepository.deleteAllByUserId(userId);
+        destinationPreferenceRepository.deleteAllByUserId(user.getId());
 
-        destinationPreferenceRepository.saveAll(
-                normalizedDestinationPreferences.stream()
-                        .map(preferenceRequest -> toDestinationPreferenceEntity(preferenceRequest, user, destinationById))
-                        .toList()
-        );
-
-        availableDateRepository.saveAll(
-                request.availableDates().stream()
-                        .map(availableDateRequest -> UserRecommendationAvailableDate.of(user, availableDateRequest.startDate(), availableDateRequest.endDate()))
-                        .toList()
-        );
+        // 순서 부여
+        List<UserRecommendationDestinationPreference> preferences = new ArrayList<>();
+        for (int i = 0; i < normalizedDestinationPreferences.size(); i++) {
+            int rank = i + 1;
+            DestinationPreferenceRequest preference = normalizedDestinationPreferences.get(i);
+            preferences.add(toDestinationPreferenceEntity(preference, user, destinationById, rank));
+        }
+        destinationPreferenceRepository.saveAll(preferences);
     }
 
     private void validateAvailableDates(List<AvailableDateRequest> availableDateRequests) {
@@ -186,11 +214,12 @@ public class TravelPreferenceService {
     private UserRecommendationDestinationPreference toDestinationPreferenceEntity(
             DestinationPreferenceRequest preferenceRequest,
             User user,
-            Map<Long, Destination> destinationById
+            Map<Long, Destination> destinationById,
+            int preferenceRank
     ) {
         return switch (preferenceRequest.type()) {
-            case COUNTRY -> UserRecommendationDestinationPreference.country(user, preferenceRequest.countryCode());
-            case CITY -> UserRecommendationDestinationPreference.city(user, destinationById.get(preferenceRequest.destinationId()));
+            case COUNTRY -> UserRecommendationDestinationPreference.country(user, preferenceRequest.countryCode(), preferenceRank);
+            case CITY -> UserRecommendationDestinationPreference.city(user, destinationById.get(preferenceRequest.destinationId()), preferenceRank);
         };
     }
 }
