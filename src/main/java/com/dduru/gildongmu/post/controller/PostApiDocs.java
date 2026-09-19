@@ -26,7 +26,7 @@ public interface PostApiDocs {
     @Operation(summary = "게시글 목록 조회", description = """
             필터 조건에 따라 게시글 목록을 조회합니다.
 
-            recruitmentStatus 미전달 시 모집 상태와 관계없이 모든 게시글을 반환합니다.
+            recruitmentStatus 미전달 시 모집 상태와 관계없이 삭제되지 않은 모든 게시글을 반환합니다.
             - OPEN: 모집 중 (status=OPEN, 인원 미달)
             - DEADLINE_NEAR: 마감 임박 (모집 중 + 모집 마감일이 오늘부터 3일 이내)
             - CLOSED: 모집 완료 (인원 마감 또는 호스트 수동 마감)
