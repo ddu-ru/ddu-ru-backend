@@ -113,11 +113,12 @@ Home Screen
 
 ### 같은 여행지 섹션 실제 조회
 
-로그인 회원의 1순위 선호 여행지를 기준으로 최신 모집글 최대 3개를 조회합니다.
+로그인 회원의 1순위 선호 여행지를 기준으로 모집 가능한 게시글을 오래된 순으로 최대 30개 고른 뒤,
+그중 무작위 3개를 반환합니다.
 선호가 없으면 홈 개요에서 `enabled=false`, `disabledReason=DESTINATION_PREFERENCE_REQUIRED`를 반환합니다.
 선호는 있지만 게시글이 없으면 활성 상태를 유지하며 섹션 API는 빈 배열을 반환합니다.
 2·3순위, 최근 검색, 인기 여행지로 보충하지 않습니다.
-설정 화면과 홈의 연동 계약은 [구현 문서](../004-implementation/007-home-destination-preference.md)를 참고합니다.
+설정 화면과 홈의 연동 계약은 [구현 문서](../004-implementation/007-travel-preferences-and-home-destination-trips.md)를 참고합니다.
 
 ### 인기 여행지 구현 메모
 

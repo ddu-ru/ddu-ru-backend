@@ -1,5 +1,6 @@
 package com.dduru.gildongmu.home.repository;
 
+import com.dduru.gildongmu.home.dto.response.SameAgeTripResponse;
 import com.dduru.gildongmu.home.dto.response.SameDestinationTripResponse;
 import com.dduru.gildongmu.post.domain.enums.PostStatus;
 import com.dduru.gildongmu.recommendation.domain.UserRecommendationDestinationPreference;
@@ -16,11 +17,15 @@ import java.util.List;
 
 import static com.dduru.gildongmu.destination.domain.QDestination.destination;
 import static com.dduru.gildongmu.post.domain.QPost.post;
+import static com.dduru.gildongmu.profile.domain.QProfile.profile;
 import static com.dduru.gildongmu.report.domain.QReport.report;
 
 @Repository
 @RequiredArgsConstructor
 public class HomeTripQueryRepository {
+
+    private static final int AGE_TOLERANCE = 5;
+    private static final int HOME_TRIP_LIMIT = 3;
 
     private final JPAQueryFactory queryFactory;
 
@@ -38,18 +43,44 @@ public class HomeTripQueryRepository {
                 .join(post.destination, destination)
                 .where(
                         destinationCondition,
-                        post.isDeleted.isFalse(),
-                        post.status.eq(PostStatus.OPEN),
-                        post.recruitCount.lt(post.recruitCapacity),
-                        post.endDate.goe(today),
-                        post.recruitDeadline.isNull().or(post.recruitDeadline.goe(today)),
-                        post.user.id.ne(userId),
-                        JPAExpressions.selectOne().from(report)
-                                .where(report.post.id.eq(post.id), report.user.id.eq(userId))
-                                .notExists()
+                        eligibleTripCondition(userId, today)
                 )
                 .orderBy(post.id.desc())
-                .limit(3)
+                .limit(HOME_TRIP_LIMIT)
                 .fetch();
+    }
+
+    public List<SameAgeTripResponse> findSameAgeTrips(Long userId, LocalDate today, int userAge) {
+        int minAge = Math.max(0, userAge - AGE_TOLERANCE);
+        int maxAge = userAge + AGE_TOLERANCE;
+        // 만 나이 범위: (maxAge + 1)세 생일은 제외하고 minAge세 생일은 포함합니다.
+        LocalDate birthdayExclusiveLowerBound = today.minusYears(maxAge + 1L);
+        LocalDate birthdayInclusiveUpperBound = today.minusYears(minAge);
+
+        return queryFactory.select(Projections.constructor(SameAgeTripResponse.class,
+                        post.id, post.title, destination.city, post.startDate,
+                        post.recruitCount, post.recruitCapacity, post.photoUrl))
+                .from(post)
+                .join(post.destination, destination)
+                .join(profile).on(profile.user.id.eq(post.user.id))
+                .where(
+                        profile.birthday.gt(birthdayExclusiveLowerBound),
+                        profile.birthday.loe(birthdayInclusiveUpperBound),
+                        eligibleTripCondition(userId, today)
+                )
+                .orderBy(post.id.desc())
+                .limit(HOME_TRIP_LIMIT)
+                .fetch();
+    }
+
+    private BooleanExpression eligibleTripCondition(Long userId, LocalDate today) {
+        return post.isDeleted.isFalse()
+                .and(post.status.eq(PostStatus.OPEN))
+                .and(post.recruitCount.lt(post.recruitCapacity))
+                .and(post.endDate.goe(today))
+                .and(post.user.id.ne(userId))
+                .and(JPAExpressions.selectOne().from(report)
+                        .where(report.post.id.eq(post.id), report.user.id.eq(userId))
+                        .notExists());
     }
 }
