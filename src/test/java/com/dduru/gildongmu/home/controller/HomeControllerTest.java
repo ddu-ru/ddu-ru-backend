@@ -11,6 +11,7 @@ import com.dduru.gildongmu.common.util.JsonConverter;
 import com.dduru.gildongmu.home.mapper.HomeRecommendationMapper;
 import com.dduru.gildongmu.home.repository.HomeTripQueryRepository;
 import com.dduru.gildongmu.home.dto.response.SameAgeTripResponse;
+import com.dduru.gildongmu.home.dto.response.HomePopularDestinationResponse;
 import com.dduru.gildongmu.profile.repository.ProfileRepository;
 import com.dduru.gildongmu.profile.exception.BirthdayNotFoundException;
 import com.dduru.gildongmu.home.service.HomeOverviewQueryService;
@@ -210,7 +211,13 @@ class HomeControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value(200))
                 .andExpect(jsonPath("$.data.updatedAt").value("2026-05-13T12:30:00"))
-                .andExpect(jsonPath("$.data.items.length()").value(5));
+                .andExpect(jsonPath("$.data.items.length()").value(2))
+                .andExpect(jsonPath("$.data.items[0].totalTripCount").value(20))
+                .andExpect(jsonPath("$.data.items[0].availableTripCount").value(3))
+                .andExpect(jsonPath("$.data.items[0].source").value("POPULAR"))
+                .andExpect(jsonPath("$.data.items[1].source").value("DEFAULT"))
+                .andExpect(jsonPath("$.data.items[1].imageUrl").value(nullValue()))
+                .andExpect(jsonPath("$.data.items[0].thumbnailUrl").doesNotExist());
     }
 
     @Test
@@ -516,7 +523,7 @@ class HomeControllerTest {
                         preferenceRepository,
                         queryRepository
                 ),
-                new HomePopularDestinationQueryService(timeProvider),
+                popularDestinationService(timeProvider),
                 new HomeRecommendationQueryService(dailyMateRecommendationQueryService, recommendationMapper),
                 mock(HomeSuperHostQueryService.class)
         ))
@@ -524,6 +531,17 @@ class HomeControllerTest {
                 .setMessageConverters(new MappingJackson2HttpMessageConverter(objectMapper))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
+    }
+
+    private HomePopularDestinationQueryService popularDestinationService(TimeProvider timeProvider) {
+        var service = mock(HomePopularDestinationQueryService.class);
+        when(service.retrieve()).thenReturn(new HomePopularDestinationResponse(timeProvider.now(), List.of(
+                new HomePopularDestinationResponse.Item(1, 121L, "부산", "busan.jpg", 3,
+                        List.of("바다"), 20, HomePopularDestinationResponse.Source.POPULAR),
+                new HomePopularDestinationResponse.Item(2, 122L, "제주", null, 0,
+                        List.of(), 0, HomePopularDestinationResponse.Source.DEFAULT)
+        )));
+        return service;
     }
 
     private UserOnboardingRepository onboardingRepository(boolean surveyCompleted) {
