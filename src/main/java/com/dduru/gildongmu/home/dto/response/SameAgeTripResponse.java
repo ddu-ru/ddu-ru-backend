@@ -7,6 +7,7 @@ public record SameAgeTripResponse(
         String title,
         String location,
         LocalDate startDate,
+        LocalDate endDate,
         int currentMemberCount,
         int maxMemberCount,
         String thumbnailUrl

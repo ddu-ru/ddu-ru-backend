@@ -293,6 +293,7 @@ class HomeControllerTest {
                 .andExpect(jsonPath("$.data.length()").value(1))
                 .andExpect(jsonPath("$.data[0].postId").value(901))
                 .andExpect(jsonPath("$.data[0].startDate").value("2026-05-26"))
+                .andExpect(jsonPath("$.data[0].endDate").value("2026-05-28"))
                 .andExpect(jsonPath("$.data[0].location").value("도쿄"))
                 .andExpect(jsonPath("$.data[0].thumbnailUrl").value(nullValue()));
     }
@@ -455,7 +456,7 @@ class HomeControllerTest {
                 .thenReturn(java.util.Optional.of(LocalDate.of(1996, 5, 13)));
         when(queryRepository.findSameAgeTrips(userId, LocalDate.of(2026, 5, 13), 30))
                 .thenReturn(List.of(new SameAgeTripResponse(901L, "또래 동행", "도쿄",
-                        LocalDate.of(2026, 5, 26), 1, 4, null)));
+                        LocalDate.of(2026, 5, 26), LocalDate.of(2026, 5, 28), 1, 4, null)));
         Journey journey = mock(Journey.class);
         Post post = mock(Post.class);
         LocalDate startDate = LocalDate.of(2026, 5, 25);

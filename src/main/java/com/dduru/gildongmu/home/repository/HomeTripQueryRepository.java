@@ -58,7 +58,7 @@ public class HomeTripQueryRepository {
         LocalDate birthdayInclusiveUpperBound = today.minusYears(minAge);
 
         return queryFactory.select(Projections.constructor(SameAgeTripResponse.class,
-                        post.id, post.title, destination.city, post.startDate,
+                        post.id, post.title, destination.city, post.startDate, post.endDate,
                         post.recruitCount, post.recruitCapacity, post.photoUrl))
                 .from(post)
                 .join(post.destination, destination)
