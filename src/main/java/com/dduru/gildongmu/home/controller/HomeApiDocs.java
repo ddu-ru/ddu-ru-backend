@@ -13,8 +13,6 @@ import com.dduru.gildongmu.home.dto.response.UpcomingTripResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 
@@ -68,28 +66,7 @@ public interface HomeApiDocs {
                     생성 실패로 FAILED가 된 당일 묶음은 다음 호출에서 재시도합니다.
                     """
     )
-    @ApiResponse(responseCode = "200", description = "추천 이용 상태와 현재 노출 가능한 카드", content = @Content(
-            mediaType = "application/json",
-            examples = {
-                    @ExampleObject(name = "AVAILABLE", summary = "추천 완료", value = """
-                            {"status":200,"message":"OK","data":{"availabilityStatus":"AVAILABLE","remainingFreeCount":0,
-                            "recommendations":[{"recommendationId":22,"postId":102,"matchPercentage":90,
-                            "title":"제주 여행","thumbnailUrl":"https://example.com/trips/jeju.jpg","location":"대한민국 제주","startDate":"2026-09-15","endDate":"2026-09-17",
-                            "host":{"nickname":"호스트","profileImageInfo":{"type":"DEFAULT","url":"https://example.com/default.png","bgColorId":null},"age":26,"gender":"F"},
-                            "currentMemberCount":1,"maxMemberCount":4,"description":"제주에서 함께 산책해요","tags":["힐링"],
-                            "matchReasons":[{"code":"RHYTHM_MATCH","message":"생활 리듬이 비슷해요"}],"cautionPoints":[]}]}}
-                            """),
-                    @ExampleObject(name = "EMPTY", summary = "후보 없음 또는 모든 카드 숨김", value = """
-                            {"status":200,"message":"OK","data":{"availabilityStatus":"AVAILABLE","remainingFreeCount":0,"recommendations":[]}}
-                            """),
-                    @ExampleObject(name = "GENERATING", summary = "당일 추천 생성 중", value = """
-                            {"status":200,"message":"OK","data":{"availabilityStatus":"GENERATING","remainingFreeCount":0,"recommendations":[]}}
-                            """),
-                    @ExampleObject(name = "SURVEY_REQUIRED", summary = "온보딩 또는 설문 미완료", value = """
-                            {"status":200,"message":"OK","data":{"availabilityStatus":"SURVEY_REQUIRED","remainingFreeCount":0,"recommendations":[]}}
-                            """)
-            }
-    ))
+    @ApiResponse(responseCode = "200", description = "추천 이용 상태와 현재 노출 가능한 카드")
     @ApiErrorResponses({
             ErrorCode.UNAUTHORIZED,
             ErrorCode.PROFILE_NOT_FOUND,
@@ -109,7 +86,7 @@ public interface HomeApiDocs {
             @Parameter(hidden = true) Long userId
     );
 
-    @Operation(summary = "홈 같은 여행지 여행 섹션 조회", description = "1순위 선호 도시 또는 국가의 모집 중 게시글을 최신순으로 최대 3개 조회합니다. 선호나 후보가 없으면 빈 배열이며 2·3순위로 보충하지 않습니다.")
+    @Operation(summary = "홈 같은 여행지 여행 섹션 조회", description = "1순위 선호 도시 또는 국가의 모집 가능한 게시글을 오래된 순으로 최대 30개 고른 뒤, 그중 무작위 3개를 반환합니다. 선호나 후보가 없으면 빈 배열이며 2·3순위로 보충하지 않습니다.")
     @ApiResponse(responseCode = "200", description = "조회 성공")
     @ApiErrorResponses({
             ErrorCode.UNAUTHORIZED
@@ -118,11 +95,11 @@ public interface HomeApiDocs {
             @Parameter(hidden = true) Long userId
     );
 
-    @Operation(summary = "홈 또래 여행 섹션 조회", description = "홈 또래 여행 섹션 데이터를 조회합니다.")
+    @Operation(summary = "홈 또래 여행 섹션 조회", description = "오늘 기준 사용자와 작성자의 만 나이 차이가 ±5세 이내인 모집 가능한 게시글을 오래된 순으로 최대 30개 고른 뒤, 그중 무작위 3개를 반환합니다.")
     @ApiResponse(responseCode = "200", description = "조회 성공")
     @ApiErrorResponses({
             ErrorCode.UNAUTHORIZED,
-            ErrorCode.USER_ONBOARDING_NOT_FOUND
+            ErrorCode.BIRTHDAY_NOT_FOUND
     })
     ResponseEntity<ApiResult<List<SameAgeTripResponse>>> retrieveSameAgeTrips(
             @Parameter(hidden = true) Long userId

@@ -22,6 +22,7 @@ import com.dduru.gildongmu.post.domain.enums.CompanionType;
 import com.dduru.gildongmu.profile.domain.enums.Gender;
 import com.dduru.gildongmu.profile.domain.enums.ProfileImageType;
 import com.dduru.gildongmu.profile.utils.ProfileImageResolver;
+import com.dduru.gildongmu.profile.repository.ProfileRepository;
 import com.dduru.gildongmu.recommendation.dto.query.MateRecommendationCardQueryResult;
 import com.dduru.gildongmu.recommendation.dto.result.MateRecommendationQueryResult;
 import com.dduru.gildongmu.recommendation.repository.UserRecommendationDestinationPreferenceRepository;
@@ -82,7 +83,7 @@ class HomeQueryServiceTest {
         popularDestinationQueryService = new HomePopularDestinationQueryService(timeProvider);
         tripQueryService = new HomeTripQueryService(
                 timeProvider,
-                onboardingService,
+                mock(ProfileRepository.class),
                 journeyScheduleRepository,
                 journeyRepository,
                 preferenceRepository,

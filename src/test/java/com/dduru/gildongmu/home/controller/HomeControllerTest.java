@@ -10,6 +10,9 @@ import com.dduru.gildongmu.common.time.TimeProvider;
 import com.dduru.gildongmu.common.util.JsonConverter;
 import com.dduru.gildongmu.home.mapper.HomeRecommendationMapper;
 import com.dduru.gildongmu.home.repository.HomeTripQueryRepository;
+import com.dduru.gildongmu.home.dto.response.SameAgeTripResponse;
+import com.dduru.gildongmu.profile.repository.ProfileRepository;
+import com.dduru.gildongmu.profile.exception.BirthdayNotFoundException;
 import com.dduru.gildongmu.home.service.HomeOverviewQueryService;
 import com.dduru.gildongmu.home.service.HomePopularDestinationQueryService;
 import com.dduru.gildongmu.home.service.HomeRecommendationQueryService;
@@ -287,9 +290,29 @@ class HomeControllerTest {
         mockMvc.perform(get(HomeEndpoints.SAME_AGE_TRIPS))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value(200))
-                .andExpect(jsonPath("$.data.length()").value(3))
-                .andExpect(jsonPath("$.data[0].postId").value(701))
-                .andExpect(jsonPath("$.data[0].startDate").value("2026-05-26"));
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].postId").value(901))
+                .andExpect(jsonPath("$.data[0].startDate").value("2026-05-26"))
+                .andExpect(jsonPath("$.data[0].location").value("도쿄"))
+                .andExpect(jsonPath("$.data[0].thumbnailUrl").value(nullValue()));
+    }
+
+    @Test
+    @DisplayName("생년월일이 없으면 또래 여행 조회는 404와 오류 코드를 반환한다")
+    void retrieveSameAgeTrips_missingBirthday() throws Exception {
+        HomeTripQueryService service = mock(HomeTripQueryService.class);
+        when(service.retrieveSameAgeTrips(10L)).thenThrow(new BirthdayNotFoundException());
+        MockMvc mvc = standaloneSetup(new HomeController(
+                mock(HomeOverviewQueryService.class), service,
+                mock(HomePopularDestinationQueryService.class), mock(HomeRecommendationQueryService.class),
+                mock(HomeSuperHostQueryService.class)))
+                .setCustomArgumentResolvers(new FixedCurrentUserArgumentResolver(10L))
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .build();
+
+        mvc.perform(get(HomeEndpoints.SAME_AGE_TRIPS))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.data.errorCode").value("BIRTHDAY_NOT_FOUND"));
     }
 
     @Test
@@ -427,6 +450,12 @@ class HomeControllerTest {
         JourneyScheduleRepository journeyScheduleRepository = mock(JourneyScheduleRepository.class);
         UserRecommendationDestinationPreferenceRepository preferenceRepository = mock(UserRecommendationDestinationPreferenceRepository.class);
         HomeTripQueryRepository queryRepository = mock(HomeTripQueryRepository.class);
+        ProfileRepository profileRepository = mock(ProfileRepository.class);
+        when(profileRepository.findBirthdayByUserId(userId))
+                .thenReturn(java.util.Optional.of(LocalDate.of(1996, 5, 13)));
+        when(queryRepository.findSameAgeTrips(userId, LocalDate.of(2026, 5, 13), 30))
+                .thenReturn(List.of(new SameAgeTripResponse(901L, "또래 동행", "도쿄",
+                        LocalDate.of(2026, 5, 26), 1, 4, null)));
         Journey journey = mock(Journey.class);
         Post post = mock(Post.class);
         LocalDate startDate = LocalDate.of(2026, 5, 25);
@@ -448,7 +477,7 @@ class HomeControllerTest {
                 new HomeOverviewQueryService(onboardingService, mock(UserRecommendationDestinationPreferenceRepository.class)),
                 new HomeTripQueryService(
                         timeProvider,
-                        onboardingService,
+                        profileRepository,
                         journeyScheduleRepository,
                         journeyRepository,
                         preferenceRepository,

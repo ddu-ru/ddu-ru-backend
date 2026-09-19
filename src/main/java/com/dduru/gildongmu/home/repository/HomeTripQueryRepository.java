@@ -25,7 +25,7 @@ import static com.dduru.gildongmu.report.domain.QReport.report;
 public class HomeTripQueryRepository {
 
     private static final int AGE_TOLERANCE = 5;
-    private static final int HOME_TRIP_LIMIT = 3;
+    private static final int HOME_TRIP_CANDIDATE_LIMIT = 30;
 
     private final JPAQueryFactory queryFactory;
 
@@ -45,8 +45,8 @@ public class HomeTripQueryRepository {
                         destinationCondition,
                         eligibleTripCondition(userId, today)
                 )
-                .orderBy(post.id.desc())
-                .limit(HOME_TRIP_LIMIT)
+                .orderBy(post.createdAt.asc(), post.id.asc())
+                .limit(HOME_TRIP_CANDIDATE_LIMIT)
                 .fetch();
     }
 
@@ -68,8 +68,8 @@ public class HomeTripQueryRepository {
                         profile.birthday.loe(birthdayInclusiveUpperBound),
                         eligibleTripCondition(userId, today)
                 )
-                .orderBy(post.id.desc())
-                .limit(HOME_TRIP_LIMIT)
+                .orderBy(post.createdAt.asc(), post.id.asc())
+                .limit(HOME_TRIP_CANDIDATE_LIMIT)
                 .fetch();
     }
 

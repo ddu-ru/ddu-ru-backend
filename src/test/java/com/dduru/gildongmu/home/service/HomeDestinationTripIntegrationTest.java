@@ -4,7 +4,6 @@ import com.dduru.gildongmu.common.config.QueryDslConfig;
 import com.dduru.gildongmu.common.time.TimeProvider;
 import com.dduru.gildongmu.destination.domain.Destination;
 import com.dduru.gildongmu.home.repository.HomeTripQueryRepository;
-import com.dduru.gildongmu.onboarding.service.OnboardingService;
 import com.dduru.gildongmu.post.domain.Post;
 import com.dduru.gildongmu.post.domain.enums.CompanionType;
 import com.dduru.gildongmu.profile.domain.enums.Gender;
@@ -44,7 +43,6 @@ class HomeDestinationTripIntegrationTest {
     @Autowired TravelPreferenceService preferences;
     @Autowired UserRecommendationDestinationPreferenceRepository preferenceRepository;
     @MockitoBean TimeProvider timeProvider;
-    @MockitoBean OnboardingService onboardingService;
     private User viewer;
     private User host;
     private Destination tokyo;
@@ -62,12 +60,13 @@ class HomeDestinationTripIntegrationTest {
     }
 
     @Test
-    void latestThreeOnlyFromFirstCityAndRankChangeAppliesImmediately() {
-        var posts = IntStream.range(0, 4).mapToObj(i -> post(host, tokyo)).toList();
+    void randomThreeFromOldestThirtyOnlyFromFirstCityAndRankChangeAppliesImmediately() {
+        var posts = IntStream.range(0, 31).mapToObj(i -> post(host, tokyo)).toList();
         var secondCity = post(host, busan);
         setPreferences(tokyo, busan);
         assertThat(service.retrieveSameDestinationTrips(viewer.getId())).extracting("postId")
-                .containsExactly(posts.get(3).getId(), posts.get(2).getId(), posts.get(1).getId());
+                .hasSize(3)
+                .allMatch(postId -> posts.subList(0, 30).stream().map(Post::getId).toList().contains(postId));
         setPreferences(busan, tokyo);
         var result = service.retrieveSameDestinationTrips(viewer.getId());
         assertThat(result).extracting("postId").containsExactly(secondCity.getId());
@@ -85,7 +84,7 @@ class HomeDestinationTripIntegrationTest {
         em.persist(UserRecommendationDestinationPreference.country(viewer, "JP", 1));
         em.persist(UserRecommendationDestinationPreference.city(viewer, busan, 2));
         assertThat(service.retrieveSameDestinationTrips(viewer.getId())).extracting("postId")
-                .containsExactly(second.getId(), first.getId());
+                .containsExactlyInAnyOrder(second.getId(), first.getId());
         assertThat(preferenceRepository.findFilterRowsByUserId(viewer.getId())).hasSize(2);
     }
 
@@ -98,7 +97,7 @@ class HomeDestinationTripIntegrationTest {
     }
 
     @Test
-    void excludesIneligiblePostsAndIncludesTodayBoundariesAndOngoingTrips() {
+    void usesOpenStatusForRecruitmentAvailabilityAndIncludesTodayBoundariesAndOngoingTrips() {
         var eligible = post(host, tokyo);
         change(eligible, "start_date = '2026-09-11', end_date = '2026-09-12', recruit_deadline = '2026-09-12'");
         change(post(host, tokyo), "is_deleted = true");
@@ -106,12 +105,14 @@ class HomeDestinationTripIntegrationTest {
         change(post(host, tokyo), "recruit_count = recruit_capacity");
         change(post(host, tokyo), "recruit_count = recruit_capacity + 1");
         change(post(host, tokyo), "end_date = '2026-09-11'");
-        change(post(host, tokyo), "recruit_deadline = '2026-09-11'");
+        var expiredDeadlineButOpen = post(host, tokyo);
+        change(expiredDeadlineButOpen, "recruit_deadline = '2026-09-11'");
         post(viewer, tokyo);
         var reported = post(host, tokyo);
         em.persist(Report.createReport(viewer, reported, ReportReason.values()[0], "신고 사유"));
         setPreferences(tokyo);
-        assertThat(service.retrieveSameDestinationTrips(viewer.getId())).extracting("postId").containsExactly(eligible.getId());
+        assertThat(service.retrieveSameDestinationTrips(viewer.getId())).extracting("postId")
+                .containsExactlyInAnyOrder(expiredDeadlineButOpen.getId(), eligible.getId());
     }
 
     @Test
