@@ -1,13 +1,15 @@
 package com.dduru.gildongmu.home.service;
 
 import com.dduru.gildongmu.common.time.TimeProvider;
-import com.dduru.gildongmu.home.dto.response.SameAgeTripResponse;
+import com.dduru.gildongmu.home.dto.response.SameDestinationTripResponse;
 import com.dduru.gildongmu.home.dto.response.UpcomingTripResponse;
+import com.dduru.gildongmu.home.repository.HomeTripQueryRepository;
 import com.dduru.gildongmu.journey.domain.Journey;
 import com.dduru.gildongmu.journey.exception.CurrentOrUpcomingJourneyNotFoundException;
 import com.dduru.gildongmu.journey.repository.JourneyRepository;
 import com.dduru.gildongmu.journey.repository.JourneyScheduleRepository;
 import com.dduru.gildongmu.onboarding.service.OnboardingService;
+import com.dduru.gildongmu.recommendation.repository.UserRecommendationDestinationPreferenceRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +25,8 @@ public class HomeTripQueryService {
     private final OnboardingService onboardingService;
     private final JourneyScheduleRepository journeyScheduleRepository;
     private final JourneyRepository journeyRepository;
+    private final UserRecommendationDestinationPreferenceRepository preferenceRepository;
+    private final HomeTripQueryRepository queryRepository;
 
     @Transactional(readOnly = true)
     public UpcomingTripResponse retrieveUpcomingTrip(Long userId) {
@@ -33,6 +37,13 @@ public class HomeTripQueryService {
 
         int scheduleCount = journeyScheduleRepository.countByJourneyIdAndIsDeletedFalse(journey.getId());
         return UpcomingTripResponse.from(journey, today, scheduleCount);
+    }
+
+    @Transactional(readOnly = true)
+    public List<SameDestinationTripResponse> retrieveSameDestinationTrips(Long userId) {
+        return preferenceRepository.findFirstPreferenceByUserId(userId)
+                .map(preference -> queryRepository.findSameDestinationTrips(userId, timeProvider.today(), preference))
+                .orElseGet(List::of);
     }
 
     @Transactional(readOnly = true)

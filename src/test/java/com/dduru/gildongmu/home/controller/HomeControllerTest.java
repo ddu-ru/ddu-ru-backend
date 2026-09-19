@@ -9,6 +9,7 @@ import com.dduru.gildongmu.common.time.KoreaTime;
 import com.dduru.gildongmu.common.time.TimeProvider;
 import com.dduru.gildongmu.common.util.JsonConverter;
 import com.dduru.gildongmu.home.mapper.HomeRecommendationMapper;
+import com.dduru.gildongmu.home.repository.HomeTripQueryRepository;
 import com.dduru.gildongmu.home.service.HomeOverviewQueryService;
 import com.dduru.gildongmu.home.service.HomePopularDestinationQueryService;
 import com.dduru.gildongmu.home.service.HomeRecommendationQueryService;
@@ -32,6 +33,7 @@ import com.dduru.gildongmu.recommendation.dto.query.MateRecommendationCardQueryR
 import com.dduru.gildongmu.recommendation.dto.result.DailyMateRecommendationResult;
 import com.dduru.gildongmu.recommendation.dto.result.MateRecommendationQueryResult;
 import com.dduru.gildongmu.recommendation.exception.RecommendationTendencyMissingException;
+import com.dduru.gildongmu.recommendation.repository.UserRecommendationDestinationPreferenceRepository;
 import com.dduru.gildongmu.recommendation.service.DailyMateRecommendationQueryService;
 import com.dduru.gildongmu.recommendation.service.DailyMateRecommendationService;
 import com.dduru.gildongmu.recommendation.service.VisibleMateRecommendationCardQueryService;
@@ -52,8 +54,6 @@ import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
 
-import com.dduru.gildongmu.recommendation.repository.UserRecommendationDestinationPreferenceRepository;
-import com.dduru.gildongmu.home.service.HomeDestinationTripQueryService;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -61,11 +61,7 @@ import java.util.List;
 
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.Answers.CALLS_REAL_METHODS;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -429,6 +425,8 @@ class HomeControllerTest {
         );
         JourneyRepository journeyRepository = mock(JourneyRepository.class, CALLS_REAL_METHODS);
         JourneyScheduleRepository journeyScheduleRepository = mock(JourneyScheduleRepository.class);
+        UserRecommendationDestinationPreferenceRepository preferenceRepository = mock(UserRecommendationDestinationPreferenceRepository.class);
+        HomeTripQueryRepository queryRepository = mock(HomeTripQueryRepository.class);
         Journey journey = mock(Journey.class);
         Post post = mock(Post.class);
         LocalDate startDate = LocalDate.of(2026, 5, 25);
@@ -452,12 +450,13 @@ class HomeControllerTest {
                         timeProvider,
                         onboardingService,
                         journeyScheduleRepository,
-                        journeyRepository
+                        journeyRepository,
+                        preferenceRepository,
+                        queryRepository
                 ),
                 new HomePopularDestinationQueryService(timeProvider),
                 new HomeRecommendationQueryService(dailyMateRecommendationQueryService, recommendationMapper),
-                new HomeSuperHostQueryService(timeProvider),
-                mock(HomeDestinationTripQueryService.class)
+                new HomeSuperHostQueryService(timeProvider)
         ))
                 .setCustomArgumentResolvers(new FixedCurrentUserArgumentResolver(userId))
                 .setMessageConverters(new MappingJackson2HttpMessageConverter(objectMapper))

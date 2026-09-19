@@ -20,11 +20,11 @@ import static com.dduru.gildongmu.report.domain.QReport.report;
 
 @Repository
 @RequiredArgsConstructor
-public class HomeDestinationTripQueryRepository {
+public class HomeTripQueryRepository {
 
     private final JPAQueryFactory queryFactory;
 
-    public List<SameDestinationTripResponse> findTrips(
+    public List<SameDestinationTripResponse> findSameDestinationTrips(
             Long userId, LocalDate today, UserRecommendationDestinationPreference preference
     ) {
         BooleanExpression destinationCondition = preference.getPreferenceType() == RecommendationDestinationPreferenceType.COUNTRY

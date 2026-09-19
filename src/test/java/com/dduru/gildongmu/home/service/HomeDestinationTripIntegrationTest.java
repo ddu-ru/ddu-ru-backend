@@ -3,7 +3,8 @@ package com.dduru.gildongmu.home.service;
 import com.dduru.gildongmu.common.config.QueryDslConfig;
 import com.dduru.gildongmu.common.time.TimeProvider;
 import com.dduru.gildongmu.destination.domain.Destination;
-import com.dduru.gildongmu.home.repository.HomeDestinationTripQueryRepository;
+import com.dduru.gildongmu.home.repository.HomeTripQueryRepository;
+import com.dduru.gildongmu.onboarding.service.OnboardingService;
 import com.dduru.gildongmu.post.domain.Post;
 import com.dduru.gildongmu.post.domain.enums.CompanionType;
 import com.dduru.gildongmu.profile.domain.enums.Gender;
@@ -34,15 +35,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
 @DataJpaTest
-@Import({QueryDslConfig.class, HomeDestinationTripQueryRepository.class,
-        HomeDestinationTripQueryService.class, TravelPreferenceService.class})
+@Import({QueryDslConfig.class, HomeTripQueryRepository.class,
+        HomeTripQueryService.class, TravelPreferenceService.class})
 class HomeDestinationTripIntegrationTest {
     private static final LocalDate TODAY = LocalDate.of(2026, 9, 12);
     @Autowired EntityManager em;
-    @Autowired HomeDestinationTripQueryService service;
+    @Autowired HomeTripQueryService service;
     @Autowired TravelPreferenceService preferences;
     @Autowired UserRecommendationDestinationPreferenceRepository preferenceRepository;
     @MockitoBean TimeProvider timeProvider;
+    @MockitoBean OnboardingService onboardingService;
     private User viewer;
     private User host;
     private Destination tokyo;
@@ -64,10 +66,10 @@ class HomeDestinationTripIntegrationTest {
         var posts = IntStream.range(0, 4).mapToObj(i -> post(host, tokyo)).toList();
         var secondCity = post(host, busan);
         setPreferences(tokyo, busan);
-        assertThat(service.retrieve(viewer.getId())).extracting("postId")
+        assertThat(service.retrieveSameDestinationTrips(viewer.getId())).extracting("postId")
                 .containsExactly(posts.get(3).getId(), posts.get(2).getId(), posts.get(1).getId());
         setPreferences(busan, tokyo);
-        var result = service.retrieve(viewer.getId());
+        var result = service.retrieveSameDestinationTrips(viewer.getId());
         assertThat(result).extracting("postId").containsExactly(secondCity.getId());
         assertThat(result.get(0).location()).isEqualTo("부산");
         assertThat(result.get(0).thumbnailUrl()).isNull();
@@ -82,7 +84,7 @@ class HomeDestinationTripIntegrationTest {
         post(host, busan);
         em.persist(UserRecommendationDestinationPreference.country(viewer, "JP", 1));
         em.persist(UserRecommendationDestinationPreference.city(viewer, busan, 2));
-        assertThat(service.retrieve(viewer.getId())).extracting("postId")
+        assertThat(service.retrieveSameDestinationTrips(viewer.getId())).extracting("postId")
                 .containsExactly(second.getId(), first.getId());
         assertThat(preferenceRepository.findFilterRowsByUserId(viewer.getId())).hasSize(2);
     }
@@ -90,9 +92,9 @@ class HomeDestinationTripIntegrationTest {
     @Test
     void emptyWithoutPreferencesAndNoFallbackWhenFirstCityHasNoPosts() {
         post(host, busan);
-        assertThat(service.retrieve(viewer.getId())).isEmpty();
+        assertThat(service.retrieveSameDestinationTrips(viewer.getId())).isEmpty();
         setPreferences(tokyo, busan);
-        assertThat(service.retrieve(viewer.getId())).isEmpty();
+        assertThat(service.retrieveSameDestinationTrips(viewer.getId())).isEmpty();
     }
 
     @Test
@@ -109,7 +111,7 @@ class HomeDestinationTripIntegrationTest {
         var reported = post(host, tokyo);
         em.persist(Report.createReport(viewer, reported, ReportReason.values()[0], "신고 사유"));
         setPreferences(tokyo);
-        assertThat(service.retrieve(viewer.getId())).extracting("postId").containsExactly(eligible.getId());
+        assertThat(service.retrieveSameDestinationTrips(viewer.getId())).extracting("postId").containsExactly(eligible.getId());
     }
 
     @Test
@@ -117,7 +119,7 @@ class HomeDestinationTripIntegrationTest {
         var post = post(host, tokyo);
         change(post, "preferred_gender = 'F', is_age_any = false, min_age = 50, max_age = 60");
         setPreferences(tokyo);
-        assertThat(service.retrieve(viewer.getId())).extracting("postId").containsExactly(post.getId());
+        assertThat(service.retrieveSameDestinationTrips(viewer.getId())).extracting("postId").containsExactly(post.getId());
     }
 
     private void setPreferences(Destination... destinations) {
