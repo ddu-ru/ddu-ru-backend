@@ -14,6 +14,7 @@ public record MateRecommendationCardQueryResult(
         String matchReasons,
         String cautionPoints,
         String title,
+        String thumbnailUrl,
         String countryName,
         String city,
         LocalDate startDate,

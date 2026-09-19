@@ -214,7 +214,13 @@ matchPercentage =
 - 후보가 0~2개만 생성되어도 그날의 묶음은 확정된 것으로 봅니다.
 - 같은 날 추가 생성은 하지 않으며 `remainingFreeCount=0`으로 응답합니다.
 
-동시 실행은 `(user_id, recommendation_date)` unique key로 방어합니다. #297 구현에서는 unique 충돌 시 이미 생성된 묶음을 다시 조회하고, `CREATED` 상태면 진행 중으로 보고 중복 생성을 시도하지 않습니다.
+동시 실행은 `(user_id, recommendation_date)` unique key로 방어합니다. #297 구현에서는 unique 충돌 시 이미 생성된 묶음을 다시 조회하고, `CREATED` 상태면 `availabilityStatus=GENERATING`, `remainingFreeCount=0`, `recommendations=[]`로 응답하고 중복 생성을 시도하지 않습니다.
+
+홈 조회는 `HomeRecommendationQueryService → DailyMateRecommendationQueryService`를 통해 당일 묶음 생성·재사용과 현재 노출 재검증을 수행하고 `HomeRecommendationMapper`로 변환합니다. 최신 결과는 KST 당일 묶음이며 전날 결과로 대체하지 않습니다. `COMPLETED`여도 노출 가능한 카드가 없으면 `AVAILABLE`과 빈 배열을 반환합니다.
+
+홈 카드의 `thumbnailUrl`은 조회 시점의 `posts.photo_url`을 반환합니다. 사진 변경은 같은 날 저장 추천에도 즉시 반영되며, 사진이 없으면 `null`을 반환하고 카드는 유지합니다. 클라이언트는 사진이 없는 카드에 기본 배경을 표시합니다.
+
+홈 API는 추천 오류를 빈 성공 응답으로 변환하지 않습니다. 프로필 누락(404), 여행 성향 누락(500), 예상하지 못한 생성·조회 오류(500)는 기존 공통 예외 처리 응답을 사용합니다. 홈 초기 구성과 다른 섹션은 추천 서비스를 호출하지 않으므로 각각 독립적으로 조회할 수 있습니다.
 
 ### 4.3 상태와 재시도
 

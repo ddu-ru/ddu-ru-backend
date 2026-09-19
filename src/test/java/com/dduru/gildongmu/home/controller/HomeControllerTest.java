@@ -22,9 +22,16 @@ import com.dduru.gildongmu.onboarding.exception.UserOnboardingNotFoundException;
 import com.dduru.gildongmu.onboarding.repository.UserOnboardingRepository;
 import com.dduru.gildongmu.onboarding.service.OnboardingService;
 import com.dduru.gildongmu.post.domain.Post;
+import com.dduru.gildongmu.post.domain.enums.CompanionType;
+import com.dduru.gildongmu.profile.domain.enums.Gender;
+import com.dduru.gildongmu.profile.domain.enums.ProfileImageType;
+import com.dduru.gildongmu.profile.exception.ProfileNotFoundException;
 import com.dduru.gildongmu.profile.utils.ProfileImageResolver;
 import com.dduru.gildongmu.recommendation.domain.enums.MateRecommendationBatchStatus;
+import com.dduru.gildongmu.recommendation.dto.query.MateRecommendationCardQueryResult;
 import com.dduru.gildongmu.recommendation.dto.result.DailyMateRecommendationResult;
+import com.dduru.gildongmu.recommendation.dto.result.MateRecommendationQueryResult;
+import com.dduru.gildongmu.recommendation.exception.RecommendationTendencyMissingException;
 import com.dduru.gildongmu.recommendation.service.DailyMateRecommendationQueryService;
 import com.dduru.gildongmu.recommendation.service.DailyMateRecommendationService;
 import com.dduru.gildongmu.recommendation.service.VisibleMateRecommendationCardQueryService;
@@ -53,7 +60,9 @@ import java.util.List;
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.Answers.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -296,6 +305,87 @@ class HomeControllerTest {
                 .andExpect(jsonPath("$.data.errorCode").value(ErrorCode.UNAUTHORIZED.name()));
     }
 
+    @Test
+    @DisplayName("추천 카드의 순서와 날짜·호스트·추천 이유를 JSON으로 반환한다")
+    void retrieveMateRecommendations_cards() throws Exception {
+        DailyMateRecommendationQueryService queryService = mock(DailyMateRecommendationQueryService.class);
+        LocalDate today = LocalDate.of(2026, 5, 13);
+        when(queryService.retrieve(10L)).thenReturn(MateRecommendationQueryResult.available(today, List.of(
+                card(22L, 102L, 1), card(11L, 101L, 3)
+        )));
+        MockMvc mockMvc = mockMvcWithQueryService(10L, onboardingRepository(true), queryService);
+        mockMvc.perform(get(HomeEndpoints.MATE_RECOMMENDATIONS))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.availabilityStatus").value("AVAILABLE"))
+                .andExpect(jsonPath("$.data.remainingFreeCount").value(0))
+                .andExpect(jsonPath("$.data.recommendations.length()").value(2))
+                .andExpect(jsonPath("$.data.recommendations[0].recommendationId").value(22))
+                .andExpect(jsonPath("$.data.recommendations[1].recommendationId").value(11))
+                .andExpect(jsonPath("$.data.recommendations[0].postId").value(102))
+                .andExpect(jsonPath("$.data.recommendations[0].matchPercentage").value(90))
+                .andExpect(jsonPath("$.data.recommendations[0].title").value("제주 여행"))
+                .andExpect(jsonPath("$.data.recommendations[0].thumbnailUrl").value("https://example.com/trips/jeju.jpg"))
+                .andExpect(jsonPath("$.data.recommendations[0].location").value("대한민국 제주"))
+                .andExpect(jsonPath("$.data.recommendations[0].startDate").value("2026-05-20"))
+                .andExpect(jsonPath("$.data.recommendations[0].endDate").value("2026-05-22"))
+                .andExpect(jsonPath("$.data.recommendations[0].host.nickname").value("호스트"))
+                .andExpect(jsonPath("$.data.recommendations[0].host.age").value(26))
+                .andExpect(jsonPath("$.data.recommendations[0].host.gender").value("F"))
+                .andExpect(jsonPath("$.data.recommendations[0].host.profileImageInfo.type").value("DEFAULT"))
+                .andExpect(jsonPath("$.data.recommendations[0].currentMemberCount").value(1))
+                .andExpect(jsonPath("$.data.recommendations[0].maxMemberCount").value(4))
+                .andExpect(jsonPath("$.data.recommendations[0].description").value("여행 설명"))
+                .andExpect(jsonPath("$.data.recommendations[0].tags[0]").value("힐링"))
+                .andExpect(jsonPath("$.data.recommendations[0].matchReasons[0].code").value("RHYTHM_MATCH"))
+                .andExpect(jsonPath("$.data.recommendations[0].matchReasons[0].message").value("생활 리듬이 비슷해요"))
+                .andExpect(jsonPath("$.data.recommendations[0].cautionPoints[0].code").value("ENERGY_DIFFERENCE"))
+                .andExpect(jsonPath("$.data.recommendations[0].cautionPoints[0].message").value("활동량이 달라요"));
+        verify(queryService).retrieve(10L);
+    }
+
+    @Test
+    @DisplayName("프로필과 여행 성향 정합성 오류를 기존 오류 코드로 반환한다")
+    void retrieveMateRecommendations_integrityErrors() throws Exception {
+        DailyMateRecommendationQueryService queryService = mock(DailyMateRecommendationQueryService.class);
+        when(queryService.retrieve(10L))
+                .thenThrow(new ProfileNotFoundException())
+                .thenThrow(new RecommendationTendencyMissingException());
+        MockMvc mockMvc = mockMvcWithQueryService(10L, onboardingRepository(true), queryService);
+        mockMvc.perform(get(HomeEndpoints.MATE_RECOMMENDATIONS))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.data.errorCode").value("PROFILE_NOT_FOUND"));
+        mockMvc.perform(get(HomeEndpoints.MATE_RECOMMENDATIONS))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.data.errorCode").value("RECOMMENDATION_TENDENCY_MISSING"));
+    }
+
+    @Test
+    @DisplayName("추천 서버 오류 이후 홈 초기 구성과 다른 모든 섹션은 독립적으로 조회된다")
+    void recommendationFailureDoesNotAffectOtherSections() throws Exception {
+        DailyMateRecommendationQueryService queryService = mock(DailyMateRecommendationQueryService.class);
+        when(queryService.retrieve(10L)).thenThrow(new IllegalStateException("recommendation storage unavailable"));
+        MockMvc mockMvc = mockMvcWithQueryService(10L, onboardingRepository(true), queryService);
+        mockMvc.perform(get(HomeEndpoints.MATE_RECOMMENDATIONS))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.data.errorCode").value("INTERNAL_SERVER_ERROR"));
+        for (String endpoint : List.of(HomeEndpoints.HOME, HomeEndpoints.UPCOMING_TRIP,
+                HomeEndpoints.POPULAR_DESTINATIONS, HomeEndpoints.SUPER_HOSTS,
+                HomeEndpoints.SAME_DESTINATION_TRIPS, HomeEndpoints.SAME_AGE_TRIPS)) {
+            mockMvc.perform(get(endpoint)).andExpect(status().isOk());
+        }
+        verify(queryService).retrieve(10L);
+        verifyNoMoreInteractions(queryService);
+    }
+
+    private MateRecommendationCardQueryResult card(Long recommendationId, Long postId, int rank) {
+        return new MateRecommendationCardQueryResult(recommendationId, postId, rank, 90,
+                "[{\"code\":\"RHYTHM_MATCH\",\"message\":\"생활 리듬이 비슷해요\"}]",
+                "[{\"code\":\"ENERGY_DIFFERENCE\",\"message\":\"활동량이 달라요\"}]",
+                "제주 여행", "https://example.com/trips/jeju.jpg", "대한민국", "제주", LocalDate.of(2026, 5, 20), LocalDate.of(2026, 5, 22),
+                CompanionType.FULL, 1, 4, "여행 설명", "[\"힐링\"]", "호스트",
+                ProfileImageType.DEFAULT, null, null, null, LocalDate.of(2000, 5, 13), Gender.F);
+    }
+
     private MockMvc mockMvcWithUser(Long userId, UserOnboardingRepository userOnboardingRepository) {
         return mockMvcWithUser(
                 userId,
@@ -309,6 +399,17 @@ class HomeControllerTest {
             UserOnboardingRepository userOnboardingRepository,
             DailyMateRecommendationResult dailyResult
     ) {
+        DailyMateRecommendationService dailyService = mock(DailyMateRecommendationService.class);
+        when(dailyService.getOrCreate(userId)).thenReturn(dailyResult);
+        return mockMvcWithQueryService(userId, userOnboardingRepository,
+                new DailyMateRecommendationQueryService(dailyService, mock(VisibleMateRecommendationCardQueryService.class)));
+    }
+
+    private MockMvc mockMvcWithQueryService(
+            Long userId,
+            UserOnboardingRepository userOnboardingRepository,
+            DailyMateRecommendationQueryService dailyMateRecommendationQueryService
+    ) {
         TimeProvider timeProvider = new TimeProvider(Clock.fixed(
                 LocalDateTime.of(2026, 5, 13, 12, 30)
                         .atZone(KoreaTime.ZONE_ID)
@@ -319,12 +420,6 @@ class HomeControllerTest {
                 .registerModule(new JavaTimeModule())
                 .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
         OnboardingService onboardingService = new OnboardingService(userOnboardingRepository);
-        DailyMateRecommendationService dailyMateRecommendationService = mock(DailyMateRecommendationService.class);
-        when(dailyMateRecommendationService.getOrCreate(userId)).thenReturn(dailyResult);
-        DailyMateRecommendationQueryService dailyMateRecommendationQueryService = new DailyMateRecommendationQueryService(
-                dailyMateRecommendationService,
-                mock(VisibleMateRecommendationCardQueryService.class)
-        );
         HomeRecommendationMapper recommendationMapper = new HomeRecommendationMapper(
                 new RecommendationReasonJsonConverter(objectMapper),
                 mock(ProfileImageResolver.class),

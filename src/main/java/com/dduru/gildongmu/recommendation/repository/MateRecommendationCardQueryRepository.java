@@ -52,6 +52,7 @@ public class MateRecommendationCardQueryRepository {
                         mateRecommendation.matchReasons,
                         mateRecommendation.cautionPoints,
                         post.title,
+                        post.photoUrl,
                         destination.countryName,
                         destination.city,
                         post.startDate,

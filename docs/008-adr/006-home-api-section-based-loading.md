@@ -263,3 +263,16 @@ section loading
 - [#283 [REFACTOR] 홈 API 섹션 단위 응답 구조 분리](https://github.com/ddu-ru/ddu-ru-backend/issues/283)
 - [#284 [FEAT] 홈 섹션 실제 조회 로직 및 캐시 고도화](https://github.com/ddu-ru/ddu-ru-backend/issues/284)
 - [#285 [TASK] 홈 API 섹션 분리 ADR 문서화](https://github.com/ddu-ru/ddu-ru-backend/issues/285)
+
+
+## #329 메이트 추천 실제 데이터 응답 정책
+
+`GET /api/v1/home/mate-recommendations`는 로그인 회원의 KST 당일 추천 묶음을 생성하거나 재사용합니다. 전날 추천으로 대체하지 않으며 현재 노출 조건을 다시 확인해 저장 순위대로 반환합니다. 게시글·호스트 정보는 현재 값, 적합도·추천 이유는 저장값입니다.
+
+- 온보딩·설문 미완료: `SURVEY_REQUIRED`와 빈 목록.
+- 당일 묶음 생성 중: `GENERATING`과 빈 목록.
+- 생성 완료: `AVAILABLE`과 현재 노출 가능한 카드. 후보 없음 또는 모든 카드 숨김도 `AVAILABLE`과 빈 목록.
+- `remainingFreeCount`는 항상 0이며 당일 숨겨진 카드를 대체 생성하지 않습니다.
+- 정합성 오류 및 생성·조회 오류는 기존 오류 응답으로 반환합니다. 생성 실패 배치는 다음 추천 호출에서 재시도합니다.
+
+추천 실패를 홈 전체 실패로 확대하거나 빈 성공 응답으로 감추지 않습니다. 클라이언트는 추천 섹션의 실패·재시도를 처리하고 홈 초기 구성 및 다른 섹션을 독립적으로 조회합니다. 서버가 다른 섹션을 대신 호출하거나 이전 추천을 반환하는 fallback은 추가하지 않습니다.

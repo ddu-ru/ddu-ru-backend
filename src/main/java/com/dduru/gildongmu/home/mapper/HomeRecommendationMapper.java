@@ -29,6 +29,7 @@ public class HomeRecommendationMapper {
                 card.postId(),
                 card.matchPercentage(),
                 card.title(),
+                card.thumbnailUrl(),
                 card.countryName() + " " + card.city(),
                 card.startDate(),
                 card.endDate(),

@@ -234,6 +234,7 @@ class HomeQueryServiceTest {
             assertThat(response.availabilityStatus())
                     .isEqualTo(MateRecommendationResponse.AvailabilityStatus.AVAILABLE);
             assertThat(response.recommendations()).hasSize(1);
+            assertThat(response.recommendations().get(0).thumbnailUrl()).isEqualTo("https://example.com/trips/jeju.jpg");
             assertThat(response.recommendations().get(0).matchReasons())
                     .extracting("code", "message")
                     .containsExactly(tuple("RHYTHM_MATCH", "여행 리듬이 잘 맞아요"));
@@ -260,6 +261,7 @@ class HomeQueryServiceTest {
                 "[{\"code\":\"RHYTHM_MATCH\",\"message\":\"여행 리듬이 잘 맞아요\"}]",
                 "[]",
                 "제주 여행 동행 모집",
+                "https://example.com/trips/jeju.jpg",
                 "대한민국",
                 "제주",
                 NOW.toLocalDate().plusDays(5),
