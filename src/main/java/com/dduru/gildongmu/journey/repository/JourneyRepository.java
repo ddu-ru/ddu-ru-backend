@@ -76,6 +76,21 @@ public interface JourneyRepository extends JpaRepository<Journey, Long> {
             Pageable pageable
     );
 
+    @Query("""
+            SELECT CASE WHEN COUNT(j) > 0 THEN true ELSE false END
+            FROM JourneyMember jm
+            JOIN jm.journey j
+            JOIN j.post p
+            WHERE jm.user.id = :userId
+              AND jm.status = 'ACTIVE'
+              AND p.isDeleted = false
+              AND p.endDate >= :today
+            """)
+    boolean existsCurrentOrUpcomingJourney(
+            @Param("userId") Long userId,
+            @Param("today") LocalDate today
+    );
+
     default Optional<Journey> findNearestCurrentOrUpcomingJourney(Long userId, LocalDate today) {
         return findCurrentAndUpcomingJourneys(userId, today, Pageable.ofSize(1))
                 .stream()

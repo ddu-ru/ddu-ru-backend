@@ -34,7 +34,8 @@
 docs/
 ├── overview.md
 ├── 001-policy/
-│   ├── 001-recommendation-policy.md
+│   ├── 001-home-mate-recommendation-policy.md
+│   ├── 002-home-recommendation-eligibility.md
 │   └── flows/
 ├── 002-design/
 │   ├── 001-domain.md
@@ -47,11 +48,13 @@ docs/
 │   └── 005-fcm-app-integration.md
 ├── 004-implementation/
 │   ├── 001-my-journey.md
-│   ├── 002-recommendation.md
+│   ├── 002-home-mate-recommendation.md
 │   ├── 003-post.md
 │   ├── 004-participation.md
 │   ├── 005-notification.md
-│   └── 006-chat.md
+│   ├── 006-chat.md
+│   ├── 007-travel-preferences-and-home-destination-trips.md
+│   └── 008-home-same-age-trips.md
 ├── 005-architecture/
 │   ├── 001-package-structure.md
 │   ├── 002-common-foundation.md
@@ -87,7 +90,8 @@ docs/
 단, 엔드포인트, 요청/응답 필드, HTTP status, 에러 코드, 페이지네이션 응답처럼 클라이언트와 맞춰야 하는 API 계약은 [API 설계 문서](./003-api/)에 둡니다.
 락 순서, 트랜잭션, SQL, repository/service 책임, Redis/STOMP/FCM 처리처럼 내부 구현 세부는 [구현 문서](./004-implementation/)에 둡니다.
 
-- [홈 여행방 추천 정책](./001-policy/001-recommendation-policy.md)
+- [홈 메이트 추천 정책](./001-policy/001-home-mate-recommendation-policy.md)
+- [홈 여행방 추천 공통 노출 조건](./001-policy/002-home-recommendation-eligibility.md)
 - [제품/기능 흐름](./001-policy/flows/)
 
 ### 002-design - 설계
@@ -110,11 +114,13 @@ AI와 개발자가 기능 구현 시 참고할 내부 구현 세부를 정리합
 락 순서, 트랜잭션, SQL, repository/service 책임, 저장 모델, Redis/STOMP/FCM 처리, 테스트 방향처럼 제품 정책이나 API 계약보다 코드 작성에 가까운 내용을 이곳에 둡니다.
 
 - [나의 여정 구현 현황](./004-implementation/001-my-journey.md)
-- [홈 여행방 추천 구현 문서](./004-implementation/002-recommendation.md)
+- [홈 메이트 추천 구현 문서](./004-implementation/002-home-mate-recommendation.md)
 - [모집글 구현 문서](./004-implementation/003-post.md)
 - [참여 신청/그룹 채팅 구현 문서](./004-implementation/004-participation.md)
 - [알림 구현 문서](./004-implementation/005-notification.md)
 - [채팅 구현 문서](./004-implementation/006-chat.md)
+- [여행지 선호와 홈 같은 여행지 동행](./004-implementation/007-travel-preferences-and-home-destination-trips.md)
+- [홈 또래 동행 구현 문서](./004-implementation/008-home-same-age-trips.md)
 
 ### 005-architecture - 코드 구조
 

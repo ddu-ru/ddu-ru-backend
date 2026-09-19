@@ -9,6 +9,7 @@ import com.dduru.gildongmu.home.dto.response.HomeSuperHostResponse;
 import com.dduru.gildongmu.home.dto.response.MateRecommendationResponse;
 import com.dduru.gildongmu.home.enums.UserAccessStatus;
 import com.dduru.gildongmu.home.mapper.HomeRecommendationMapper;
+import com.dduru.gildongmu.home.repository.HomeTripQueryRepository;
 import com.dduru.gildongmu.journey.domain.Journey;
 import com.dduru.gildongmu.journey.exception.CurrentOrUpcomingJourneyNotFoundException;
 import com.dduru.gildongmu.journey.repository.JourneyRepository;
@@ -21,8 +22,10 @@ import com.dduru.gildongmu.post.domain.enums.CompanionType;
 import com.dduru.gildongmu.profile.domain.enums.Gender;
 import com.dduru.gildongmu.profile.domain.enums.ProfileImageType;
 import com.dduru.gildongmu.profile.utils.ProfileImageResolver;
+import com.dduru.gildongmu.profile.repository.ProfileRepository;
 import com.dduru.gildongmu.recommendation.dto.query.MateRecommendationCardQueryResult;
 import com.dduru.gildongmu.recommendation.dto.result.MateRecommendationQueryResult;
+import com.dduru.gildongmu.recommendation.repository.UserRecommendationDestinationPreferenceRepository;
 import com.dduru.gildongmu.recommendation.service.DailyMateRecommendationQueryService;
 import com.dduru.gildongmu.recommendation.support.RecommendationReasonJsonConverter;
 import com.dduru.gildongmu.user.domain.User;
@@ -35,7 +38,6 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.data.domain.Pageable;
 
-import com.dduru.gildongmu.recommendation.repository.UserRecommendationDestinationPreferenceRepository;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -45,11 +47,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.Answers.CALLS_REAL_METHODS;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.eq;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @DisplayName("Home 조회 서비스 테스트")
 class HomeQueryServiceTest {
@@ -66,10 +64,11 @@ class HomeQueryServiceTest {
     private HomeTripQueryService tripQueryService;
     private HomeRecommendationQueryService recommendationQueryService;
     private HomeSuperHostQueryService superHostQueryService;
+    private TimeProvider timeProvider;
 
     @BeforeEach
     void setUp() {
-        TimeProvider timeProvider = new TimeProvider(Clock.fixed(
+        timeProvider = new TimeProvider(Clock.fixed(
                 NOW.atZone(KoreaTime.ZONE_ID).toInstant(),
                 KoreaTime.ZONE_ID
         ));
@@ -81,13 +80,17 @@ class HomeQueryServiceTest {
         ObjectMapper objectMapper = new ObjectMapper();
 
         preferenceRepository = mock(UserRecommendationDestinationPreferenceRepository.class);
-        overviewQueryService = new HomeOverviewQueryService(onboardingService, preferenceRepository);
+        overviewQueryService = new HomeOverviewQueryService(
+                onboardingService, preferenceRepository, journeyRepository, timeProvider
+        );
         popularDestinationQueryService = new HomePopularDestinationQueryService(timeProvider);
         tripQueryService = new HomeTripQueryService(
                 timeProvider,
-                onboardingService,
+                mock(ProfileRepository.class),
                 journeyScheduleRepository,
-                journeyRepository
+                journeyRepository,
+                preferenceRepository,
+                mock(HomeTripQueryRepository.class)
         );
         recommendationQueryService = new HomeRecommendationQueryService(
                 dailyMateRecommendationQueryService,
@@ -120,11 +123,24 @@ class HomeQueryServiceTest {
             assertThat(overviewQueryService.retrieve(10L).userAccessStatus())
                     .isEqualTo(UserAccessStatus.MEMBER_SURVEY_COMPLETED);
         }
+
+        @Test
+        @DisplayName("진행·예정 여정이 없으면 해당 섹션을 비활성화한다")
+        void upcomingTripRequiresCurrentOrUpcomingJourney() {
+            when(userOnboardingRepository.getByUserIdOrThrow(10L)).thenReturn(onboarding(false));
+            when(journeyRepository.existsCurrentOrUpcomingJourney(10L, NOW.toLocalDate())).thenReturn(false);
+
+            var disabled = overviewQueryService.retrieve(10L).sections().get(0);
+
+            assertThat(disabled.enabled()).isFalse();
+            assertThat(disabled.disabledReason().name()).isEqualTo("NO_CURRENT_OR_UPCOMING_JOURNEY");
+        }
     }
 
     @Test
     void destinationSectionRequiresPreferencesNotMatchingPosts() {
         when(userOnboardingRepository.getByUserIdOrThrow(10L)).thenReturn(onboarding(false));
+        when(journeyRepository.existsCurrentOrUpcomingJourney(10L, NOW.toLocalDate())).thenReturn(true);
         var disabled = overviewQueryService.retrieve(10L).sections().get(4);
         assertThat(disabled.enabled()).isFalse();
         assertThat(disabled.disabledReason().name()).isEqualTo("DESTINATION_PREFERENCE_REQUIRED");

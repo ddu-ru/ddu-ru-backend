@@ -2,27 +2,38 @@ package com.dduru.gildongmu.home.service;
 
 import com.dduru.gildongmu.common.time.TimeProvider;
 import com.dduru.gildongmu.home.dto.response.SameAgeTripResponse;
+import com.dduru.gildongmu.home.dto.response.SameDestinationTripResponse;
 import com.dduru.gildongmu.home.dto.response.UpcomingTripResponse;
+import com.dduru.gildongmu.home.repository.HomeTripQueryRepository;
 import com.dduru.gildongmu.journey.domain.Journey;
 import com.dduru.gildongmu.journey.exception.CurrentOrUpcomingJourneyNotFoundException;
 import com.dduru.gildongmu.journey.repository.JourneyRepository;
 import com.dduru.gildongmu.journey.repository.JourneyScheduleRepository;
-import com.dduru.gildongmu.onboarding.service.OnboardingService;
+import com.dduru.gildongmu.profile.exception.BirthdayNotFoundException;
+import com.dduru.gildongmu.profile.repository.ProfileRepository;
+import com.dduru.gildongmu.profile.utils.AgeCalculator;
+import com.dduru.gildongmu.recommendation.repository.UserRecommendationDestinationPreferenceRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class HomeTripQueryService {
 
+    private static final int HOME_TRIP_DISPLAY_LIMIT = 3;
+
     private final TimeProvider timeProvider;
-    private final OnboardingService onboardingService;
+    private final ProfileRepository profileRepository;
     private final JourneyScheduleRepository journeyScheduleRepository;
     private final JourneyRepository journeyRepository;
+    private final UserRecommendationDestinationPreferenceRepository preferenceRepository;
+    private final HomeTripQueryRepository queryRepository;
 
     @Transactional(readOnly = true)
     public UpcomingTripResponse retrieveUpcomingTrip(Long userId) {
@@ -36,17 +47,27 @@ public class HomeTripQueryService {
     }
 
     @Transactional(readOnly = true)
-    public List<SameAgeTripResponse> retrieveSameAgeTrips(Long userId) {
-        requireOnboarding(userId);
-        LocalDate baseStartDate = timeProvider.today().plusDays(12);
-        return List.of(
-                new SameAgeTripResponse(701L, "제주 로컬 맛집 탐방", "제주도 한라산", baseStartDate.plusDays(1), 3, 4, HomeMockData.THUMBNAIL_URL),
-                new SameAgeTripResponse(702L, "부산 감천문화마을 산책", "부산 감천문화마을", baseStartDate.plusDays(4), 2, 5, HomeMockData.THUMBNAIL_URL),
-                new SameAgeTripResponse(703L, "전주 한옥마을 먹방", "전주 한옥마을", baseStartDate.plusDays(7), 4, 6, HomeMockData.THUMBNAIL_URL)
-        );
+    public List<SameDestinationTripResponse> retrieveSameDestinationTrips(Long userId) {
+        return preferenceRepository.findFirstPreferenceByUserId(userId)
+                .map(preference -> selectRandomTrips(
+                        queryRepository.findSameDestinationTrips(userId, timeProvider.today(), preference)
+                ))
+                .orElseGet(List::of);
     }
 
-    private void requireOnboarding(Long userId) {
-        onboardingService.getStatus(userId);
+    @Transactional(readOnly = true)
+    public List<SameAgeTripResponse> retrieveSameAgeTrips(Long userId) {
+        LocalDate today = timeProvider.today();
+        int userAge = profileRepository.findBirthdayByUserId(userId)
+                .map(birthday -> AgeCalculator.calculate(birthday, today))
+                .orElseThrow(BirthdayNotFoundException::new);
+
+        return selectRandomTrips(queryRepository.findSameAgeTrips(userId, today, userAge));
+    }
+
+    private <T> List<T> selectRandomTrips(List<T> candidates) {
+        List<T> shuffledTrips = new ArrayList<>(candidates);
+        Collections.shuffle(shuffledTrips);
+        return List.copyOf(shuffledTrips.subList(0, Math.min(HOME_TRIP_DISPLAY_LIMIT, shuffledTrips.size())));
     }
 }
