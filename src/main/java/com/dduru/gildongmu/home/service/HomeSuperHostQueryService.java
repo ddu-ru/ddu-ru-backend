@@ -1,99 +1,91 @@
 package com.dduru.gildongmu.home.service;
 
 import com.dduru.gildongmu.common.time.TimeProvider;
+import com.dduru.gildongmu.common.util.JsonConverter;
+import com.dduru.gildongmu.home.dto.query.HomeSuperHostQueryResult;
 import com.dduru.gildongmu.home.dto.response.HomeHostResponse;
 import com.dduru.gildongmu.home.dto.response.HomeSuperHostResponse;
-import com.dduru.gildongmu.profile.domain.enums.Gender;
+import com.dduru.gildongmu.home.repository.HomeSuperHostQueryRepository;
+import com.dduru.gildongmu.like.repository.PostLikeRepository;
 import com.dduru.gildongmu.profile.domain.enums.ProfileImageType;
 import com.dduru.gildongmu.profile.dto.response.ProfileImageInfo;
+import com.dduru.gildongmu.profile.utils.AgeCalculator;
+import com.dduru.gildongmu.profile.utils.ProfileImageResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class HomeSuperHostQueryService {
 
+    private final HomeSuperHostQueryRepository queryRepository;
+    private final PostLikeRepository postLikeRepository;
+    private final ProfileImageResolver profileImageResolver;
+    private final JsonConverter jsonConverter;
     private final TimeProvider timeProvider;
 
-    @Transactional(readOnly = true)
     public List<HomeSuperHostResponse> retrieve(Long userId) {
-        LocalDate baseStartDate = timeProvider.today().plusDays(12);
-        // TODO: userId로 hasLiked 여부 조회 (실제 데이터 연동 시)
-        return List.of(
-                superHost(501L, "제주 동쪽 일출 투어", "제주도 한라산", baseStartDate, baseStartDate.plusDays(3),
-                        3, 4, List.of("일출", "등산"), uploadedHost("여행자민지", 28, Gender.F), 723),
-                superHost(502L, "부산 야경 맛집 산책", "부산 광안리", baseStartDate.plusDays(5), baseStartDate.plusDays(7),
-                        2, 5, List.of("맛집", "야경"), avatarHost("부산가이드", 34, Gender.M, 3L), 681),
-                superHost(503L, "강릉 바다 감성 여행", "강원도 강릉", baseStartDate.plusDays(8), baseStartDate.plusDays(10),
-                        4, 6, List.of("바다", "사진"), uploadedHost("바다수집가", 29, Gender.F), 598),
-                superHost(504L, "여수 밤바다 산책", "전남 여수", baseStartDate.plusDays(11), baseStartDate.plusDays(13),
-                        2, 4, List.of("산책", "야경"), avatarHost("여수러버", 32, Gender.U, 4L), 512),
-                superHost(505L, "전주 한옥마을 먹방", "전주 한옥마을", baseStartDate.plusDays(14), baseStartDate.plusDays(15),
-                        3, 5, List.of("맛집", "한옥"), uploadedHost("먹방메이트", 27, Gender.F), 476)
-        );
+        LocalDateTime now = timeProvider.now();
+        LocalDate today = now.toLocalDate();
+        List<HomeSuperHostQueryResult> superHosts = queryRepository.findVisibleSuperHosts(userId, now, today);
+        if (superHosts.isEmpty()) {
+            return List.of();
+        }
+
+        Set<Long> likedPostIds = findLikedPostIds(userId, superHosts);
+        return superHosts.stream()
+                .map(superHost -> toResponse(superHost, today, likedPostIds.contains(superHost.postId())))
+                .toList();
     }
 
-    private static HomeSuperHostResponse superHost(
-            Long postId,
-            String title,
-            String location,
-            LocalDate startDate,
-            LocalDate endDate,
-            int currentMemberCount,
-            int maxMemberCount,
-            List<String> tags,
-            HomeHostResponse host,
-            int viewCount
-    ) {
+    private Set<Long> findLikedPostIds(Long userId, List<HomeSuperHostQueryResult> superHosts) {
+        if (userId == null) {
+            return Set.of();
+        }
+        List<Long> postIds = superHosts.stream().map(HomeSuperHostQueryResult::postId).toList();
+        return postLikeRepository.findLikedPostIdsByUserId(userId, postIds);
+    }
+
+    private HomeSuperHostResponse toResponse(HomeSuperHostQueryResult superHost, LocalDate today, boolean hasLiked) {
         return new HomeSuperHostResponse(
-                postId,
+                superHost.postId(),
                 HomeSuperHostResponse.Status.OPEN,
-                title,
-                location,
-                startDate,
-                endDate,
-                currentMemberCount,
-                maxMemberCount,
-                tags,
-                host,
-                viewCount,
-                HomeMockData.THUMBNAIL_URL,
-                false
+                superHost.title(),
+                superHost.countryName() + " " + superHost.city(),
+                superHost.startDate(),
+                superHost.endDate(),
+                superHost.currentMemberCount(),
+                superHost.maxMemberCount(),
+                jsonConverter.convertJsonToList(superHost.tags()),
+                toHost(superHost, today),
+                superHost.viewCount(),
+                superHost.thumbnailUrl(),
+                hasLiked
         );
     }
 
-    private static HomeHostResponse uploadedHost(String nickname, int age, Gender gender) {
+    private HomeHostResponse toHost(HomeSuperHostQueryResult superHost, LocalDate today) {
+        ProfileImageType imageType = superHost.hostProfileImageType() == null
+                ? ProfileImageType.DEFAULT
+                : superHost.hostProfileImageType();
         return new HomeHostResponse(
-                nickname,
-                new ProfileImageInfo(
-                        ProfileImageType.UPLOADED,
-                        HomeMockData.PROFILE_IMAGE_URL,
-                        null
+                superHost.hostNickname(),
+                ProfileImageInfo.from(
+                        imageType,
+                        superHost.hostUploadedImageUrl(),
+                        superHost.hostAvatarImageUrl(),
+                        superHost.hostBgColorId(),
+                        profileImageResolver
                 ),
-                age,
-                gender
-        );
-    }
-
-    private static HomeHostResponse avatarHost(
-            String nickname,
-            int age,
-            Gender gender,
-            Long bgColorId
-    ) {
-        return new HomeHostResponse(
-                nickname,
-                new ProfileImageInfo(
-                        ProfileImageType.AVATAR,
-                        HomeMockData.PROFILE_IMAGE_URL,
-                        bgColorId
-                ),
-                age,
-                gender
+                AgeCalculator.calculate(superHost.hostBirthday(), today),
+                superHost.hostGender()
         );
     }
 }
