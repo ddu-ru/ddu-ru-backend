@@ -15,7 +15,7 @@ import java.util.Locale;
 @RequiredArgsConstructor
 public class S3ImageUrlValidator {
 
-    private static final List<String> ALLOWED_IMAGE_EXTENSIONS = List.of("jpg", "jpeg", "png", "gif");
+    private static final List<String> ALLOWED_IMAGE_EXTENSIONS = List.of("jpg", "jpeg", "png");
 
     private final S3Properties s3Properties;
 

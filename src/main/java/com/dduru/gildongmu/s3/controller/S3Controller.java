@@ -27,7 +27,7 @@ public class S3Controller implements S3ApiDocs {
     public ResponseEntity<ApiResult<List<ImageUploadResponse>>> preparePostImageUpload(
             @Valid @RequestBody ImageUploadRequest request
     ) {
-        List<ImageUploadResponse> responses = s3Service.preparePostImageUpload(request.fileNames());
+        List<ImageUploadResponse> responses = s3Service.preparePostImageUpload(request.files());
         return ResponseEntity.ok(ApiResult.ok(responses));
     }
 
@@ -36,7 +36,7 @@ public class S3Controller implements S3ApiDocs {
     public ResponseEntity<ApiResult<List<ImageUploadResponse>>> prepareProfileImageUpload(
             @Valid @RequestBody ImageUploadRequest request
     ) {
-        List<ImageUploadResponse> responses = s3Service.prepareProfileImageUpload(request.fileNames());
+        List<ImageUploadResponse> responses = s3Service.prepareProfileImageUpload(request.files());
         return ResponseEntity.ok(ApiResult.ok(responses));
     }
 
@@ -45,7 +45,7 @@ public class S3Controller implements S3ApiDocs {
     public ResponseEntity<ApiResult<List<ImageUploadResponse>>> prepareJourneyImageUpload(
             @Valid @RequestBody ImageUploadRequest request
     ) {
-        List<ImageUploadResponse> responses = s3Service.prepareJourneyImageUpload(request.fileNames());
+        List<ImageUploadResponse> responses = s3Service.prepareJourneyImageUpload(request.files());
         return ResponseEntity.ok(ApiResult.ok(responses));
     }
 
@@ -63,7 +63,7 @@ public class S3Controller implements S3ApiDocs {
     public ResponseEntity<ApiResult<List<ImageUploadResponse>>> prepareChatImageUpload(
             @Valid @RequestBody ImageUploadRequest request
     ) {
-        List<ImageUploadResponse> responses = s3Service.prepareChatImageUpload(request.fileNames());
+        List<ImageUploadResponse> responses = s3Service.prepareChatImageUpload(request.files());
         return ResponseEntity.ok(ApiResult.ok(responses));
     }
 
