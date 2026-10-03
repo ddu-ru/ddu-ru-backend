@@ -261,17 +261,14 @@ class HomeControllerTest {
     }
 
     @Test
-    @DisplayName("비회원도 슈퍼호스트 섹션을 조회할 수 있다")
+    @DisplayName("비회원도 슈퍼호스트 섹션을 조회하며 후보가 없으면 빈 배열을 받는다")
     void retrieveSuperHosts_guest() throws Exception {
         MockMvc mockMvc = mockMvcWithUser(null, mock(UserOnboardingRepository.class));
 
         mockMvc.perform(get(HomeEndpoints.SUPER_HOSTS))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value(200))
-                .andExpect(jsonPath("$.data.length()").value(5))
-                .andExpect(jsonPath("$.data[0].postId").value(501))
-                .andExpect(jsonPath("$.data[0].tags[0]").value("일출"))
-                .andExpect(jsonPath("$.data[0].hasLiked").value(false));
+                .andExpect(jsonPath("$.data.length()").value(0));
     }
 
     @Test
@@ -521,7 +518,7 @@ class HomeControllerTest {
                 ),
                 new HomePopularDestinationQueryService(timeProvider),
                 new HomeRecommendationQueryService(dailyMateRecommendationQueryService, recommendationMapper),
-                new HomeSuperHostQueryService(timeProvider)
+                mock(HomeSuperHostQueryService.class)
         ))
                 .setCustomArgumentResolvers(new FixedCurrentUserArgumentResolver(userId))
                 .setMessageConverters(new MappingJackson2HttpMessageConverter(objectMapper))

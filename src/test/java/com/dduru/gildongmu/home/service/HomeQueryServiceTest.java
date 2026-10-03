@@ -4,16 +4,19 @@ import com.dduru.gildongmu.common.exception.ErrorCode;
 import com.dduru.gildongmu.common.time.KoreaTime;
 import com.dduru.gildongmu.common.time.TimeProvider;
 import com.dduru.gildongmu.common.util.JsonConverter;
+import com.dduru.gildongmu.home.dto.query.HomeSuperHostQueryResult;
 import com.dduru.gildongmu.home.dto.response.HomePopularDestinationResponse;
 import com.dduru.gildongmu.home.dto.response.HomeSuperHostResponse;
 import com.dduru.gildongmu.home.dto.response.MateRecommendationResponse;
 import com.dduru.gildongmu.home.enums.UserAccessStatus;
 import com.dduru.gildongmu.home.mapper.HomeRecommendationMapper;
 import com.dduru.gildongmu.home.repository.HomeTripQueryRepository;
+import com.dduru.gildongmu.home.repository.HomeSuperHostQueryRepository;
 import com.dduru.gildongmu.journey.domain.Journey;
 import com.dduru.gildongmu.journey.exception.CurrentOrUpcomingJourneyNotFoundException;
 import com.dduru.gildongmu.journey.repository.JourneyRepository;
 import com.dduru.gildongmu.journey.repository.JourneyScheduleRepository;
+import com.dduru.gildongmu.like.repository.PostLikeRepository;
 import com.dduru.gildongmu.onboarding.domain.UserOnboarding;
 import com.dduru.gildongmu.onboarding.repository.UserOnboardingRepository;
 import com.dduru.gildongmu.onboarding.service.OnboardingService;
@@ -42,6 +45,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -65,6 +69,8 @@ class HomeQueryServiceTest {
     private HomeRecommendationQueryService recommendationQueryService;
     private HomeSuperHostQueryService superHostQueryService;
     private TimeProvider timeProvider;
+    private HomeSuperHostQueryRepository superHostQueryRepository;
+    private PostLikeRepository postLikeRepository;
 
     @BeforeEach
     void setUp() {
@@ -100,7 +106,18 @@ class HomeQueryServiceTest {
                         new JsonConverter(objectMapper)
                 )
         );
-        superHostQueryService = new HomeSuperHostQueryService(timeProvider);
+        superHostQueryRepository = mock(HomeSuperHostQueryRepository.class);
+        postLikeRepository = mock(PostLikeRepository.class);
+        ProfileImageResolver profileImageResolver = mock(ProfileImageResolver.class);
+        when(profileImageResolver.resolve(ProfileImageType.DEFAULT, null, null))
+                .thenReturn("https://example.com/default.png");
+        superHostQueryService = new HomeSuperHostQueryService(
+                superHostQueryRepository,
+                postLikeRepository,
+                profileImageResolver,
+                new JsonConverter(objectMapper),
+                timeProvider
+        );
     }
 
     @Nested
@@ -266,14 +283,54 @@ class HomeQueryServiceTest {
     }
 
     @Test
-    @DisplayName("mock 슈퍼호스트 5개를 반환하고 hasLiked는 false다")
+    @DisplayName("실제 슈퍼호스트 카드와 회원의 좋아요 여부를 반환한다")
     void superHosts() {
+        when(superHostQueryRepository.findVisibleSuperHosts(10L, NOW, NOW.toLocalDate()))
+                .thenReturn(List.of(superHostQueryResult()));
+        when(postLikeRepository.findLikedPostIdsByUserId(10L, List.of(501L)))
+                .thenReturn(Set.of(501L));
+
         List<HomeSuperHostResponse> response = superHostQueryService.retrieve(10L);
 
-        assertThat(response).hasSize(5);
+        assertThat(response).hasSize(1);
         assertThat(response.get(0).postId()).isEqualTo(501L);
         assertThat(response.get(0).tags()).containsExactly("일출", "등산");
-        assertThat(response.get(0).hasLiked()).isFalse();
+        assertThat(response.get(0).location()).isEqualTo("대한민국 제주");
+        assertThat(response.get(0).host().age()).isEqualTo(29);
+        assertThat(response.get(0).hasLiked()).isTrue();
+    }
+
+    @Test
+    @DisplayName("노출 가능한 슈퍼호스트가 없으면 빈 배열을 반환한다")
+    void emptySuperHosts() {
+        when(superHostQueryRepository.findVisibleSuperHosts(null, NOW, NOW.toLocalDate()))
+                .thenReturn(List.of());
+
+        assertThat(superHostQueryService.retrieve(null)).isEmpty();
+        verifyNoInteractions(postLikeRepository);
+    }
+
+    private HomeSuperHostQueryResult superHostQueryResult() {
+        return new HomeSuperHostQueryResult(
+                501L,
+                "제주 동쪽 일출 투어",
+                "대한민국",
+                "제주",
+                NOW.toLocalDate().plusDays(12),
+                NOW.toLocalDate().plusDays(15),
+                3,
+                4,
+                "[\"일출\",\"등산\"]",
+                723,
+                "https://example.com/trip.png",
+                "여행자민지",
+                ProfileImageType.DEFAULT,
+                null,
+                null,
+                null,
+                LocalDate.of(1997, 5, 13),
+                Gender.F
+        );
     }
 
     private MateRecommendationCardQueryResult sampleRecommendationCard() {
