@@ -1,8 +1,10 @@
 package com.dduru.gildongmu.home.service;
 
+import com.dduru.gildongmu.common.time.TimeProvider;
 import com.dduru.gildongmu.home.controller.HomeEndpoints;
 import com.dduru.gildongmu.home.dto.response.HomeResponse;
 import com.dduru.gildongmu.home.enums.UserAccessStatus;
+import com.dduru.gildongmu.journey.repository.JourneyRepository;
 import com.dduru.gildongmu.onboarding.domain.enums.SurveyStatus;
 import com.dduru.gildongmu.onboarding.service.OnboardingService;
 import com.dduru.gildongmu.recommendation.repository.UserRecommendationDestinationPreferenceRepository;
@@ -18,11 +20,17 @@ public class HomeOverviewQueryService {
 
     private final OnboardingService onboardingService;
     private final UserRecommendationDestinationPreferenceRepository preferenceRepository;
+    private final JourneyRepository journeyRepository;
+    private final TimeProvider timeProvider;
 
     @Transactional(readOnly = true)
     public HomeResponse retrieve(Long userId) {
         UserAccessStatus userAccessStatus = resolveUserAccessStatus(userId);
-        return new HomeResponse(userAccessStatus, sections(userAccessStatus, hasPreference(userId)));
+        return new HomeResponse(userAccessStatus, sections(
+                userAccessStatus,
+                hasCurrentOrUpcomingJourney(userId),
+                hasPreference(userId)
+        ));
     }
 
     private UserAccessStatus resolveUserAccessStatus(Long userId) {
@@ -36,13 +44,15 @@ public class HomeOverviewQueryService {
         return UserAccessStatus.MEMBER_SURVEY_REQUIRED;
     }
 
-    private static List<HomeResponse.HomeSectionResponse> sections(UserAccessStatus userAccessStatus, boolean hasPreference) {
+    private static List<HomeResponse.HomeSectionResponse> sections(
+            UserAccessStatus userAccessStatus, boolean hasCurrentOrUpcomingJourney, boolean hasPreference
+    ) {
         return List.of(
                 section(
                         HomeResponse.SectionKey.UPCOMING_TRIP,
                         HomeEndpoints.UPCOMING_TRIP,
-                        isMember(userAccessStatus),
-                        HomeResponse.DisabledReason.LOGIN_REQUIRED
+                        isMember(userAccessStatus) && hasCurrentOrUpcomingJourney,
+                        upcomingTripDisabledReason(userAccessStatus)
                 ),
                 section(
                         HomeResponse.SectionKey.POPULAR_DESTINATIONS,
@@ -95,12 +105,22 @@ public class HomeOverviewQueryService {
         };
     }
 
+    private static HomeResponse.DisabledReason upcomingTripDisabledReason(UserAccessStatus userAccessStatus) {
+        return isMember(userAccessStatus)
+                ? HomeResponse.DisabledReason.NO_CURRENT_OR_UPCOMING_JOURNEY
+                : HomeResponse.DisabledReason.LOGIN_REQUIRED;
+    }
+
     private static boolean isMember(UserAccessStatus userAccessStatus) {
         return userAccessStatus != UserAccessStatus.GUEST;
     }
 
     private boolean hasPreference(Long userId) {
         return userId != null && preferenceRepository.existsByUser_Id(userId);
+    }
+
+    private boolean hasCurrentOrUpcomingJourney(Long userId) {
+        return userId != null && journeyRepository.existsCurrentOrUpcomingJourney(userId, timeProvider.today());
     }
 
     private static boolean isSurveyCompleted(UserAccessStatus userAccessStatus) {

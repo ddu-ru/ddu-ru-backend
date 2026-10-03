@@ -1,7 +1,7 @@
 # 002. 홈 여행방 추천 구현 문서
 
 > 이 문서를 보면 홈 여행방 추천의 후보 조회 조건, 점수 계산, 일일 묶음, 저장 모델, 후속 구현 범위를 파악할 수 있습니다.
-> 사람이 합의해야 하는 제품 정책은 [홈 여행방 추천 정책](../001-policy/001-recommendation-policy.md)을 참고합니다.
+> 사람이 합의해야 하는 제품 정책은 [홈 메이트 추천 정책](../001-policy/001-home-mate-recommendation-policy.md)을 참고합니다.
 
 ---
 
@@ -56,17 +56,13 @@
 
 ### 3.2 항상 적용하는 후보 제외 조건
 
-추천 후보 여행방은 아래 조건을 모두 만족해야 합니다.
+기본 조건은 [홈 게시글 추천 공통 노출 조건](../001-policy/002-home-recommendation-eligibility.md)을 따릅니다.
+모집 마감일과 상태 전환 방식, 날짜 경계도 해당 문서를 기준으로 합니다.
+메이트 추천만의 추가 조건은 다음과 같습니다.
 
-- `Post.isDeleted=false`입니다.
-- `Post.status=OPEN`입니다.
-- `Post.endDate >= today(KST)`입니다.
-- `Post.recruitCount < Post.recruitCapacity`입니다.
-- 신청자가 해당 게시글 작성자가 아닙니다.
 - 신청자가 게시글의 선호 성별과 선호 나이 조건을 만족합니다.
 - 신청자가 해당 게시글에 이미 참여 신청하지 않았습니다.
 - 신청자가 해당 게시글을 이미 패스하지 않았습니다.
-- 신청자가 해당 게시글을 신고한 적이 없습니다. 신고 상태와 무관하게 제외합니다.
 - 게시글 작성자(호스트)의 `TravelTendency`가 존재합니다.
 
 선호 성별과 나이는 추천 저장 테이블에 복제하지 않고 후보 조회 시 `posts`와 신청자 `profiles`를 기준으로 필터링합니다.
@@ -245,15 +241,12 @@ matchPercentage =
 
 #### 홈 추천 재검증 조건
 
-다음 조건을 모두 만족하는 경우에만 추천 카드를 노출합니다.
+저장된 추천도 [공통 노출 조건](../001-policy/002-home-recommendation-eligibility.md)을 다시 적용합니다.
+아래 메이트 추천 전용 조건까지 모두 만족하는 경우에만 카드를 노출합니다.
 
-* 게시글이 삭제되지 않았을 것 (`isDeleted = false`)
-* 게시글 상태가 `OPEN`일 것
-* 모집 정원이 마감되지 않았을 것
-* 여행 종료일이 현재(KST) 이후일 것
 * 현재 게시글의 모집 조건(성별, 나이, 동행 방식 등)을 만족할 것
 * 현재 사용자의 여행지 및 가능 날짜 조건을 만족할 것
-* 현재 사용자가 해당 게시글에 참여 신청, 패스 또는 신고하지 않았을 것
+* 현재 사용자가 해당 게시글에 참여 신청 또는 패스하지 않았을 것
 * 홈 카드에 필요한 호스트 프로필 정보가 존재할 것
 
 위 조건 중 하나라도 만족하지 않으면 해당 추천은 홈 추천 응답에서 제외합니다.
@@ -288,7 +281,7 @@ matchPercentage =
 | `mate_recommendations` | 묶음 안의 추천 여행방, 추천 순위, 점수, 이유 |
 | `mate_recommendation_passes` | 사용자가 패스한 추천 여행방 |
 
-`user_recommendation_destination_preferences`는 `preference_rank`로 사용자별 1~3순위를 저장합니다. 최대 3개 요청의 배열 순서로 순위를 부여하고 `(user_id, preference_rank)` 유일 제약을 적용합니다. 홈 같은 여행지 섹션은 1순위만 사용하지만 메이트 추천은 모든 선호를 OR로 적용합니다. 상세 계약은 [선호 여행지 순위와 홈 동행](./007-home-destination-preference.md)을 참고합니다.
+`user_recommendation_destination_preferences`는 `preference_rank`로 사용자별 1~3순위를 저장합니다. 최대 3개 요청의 배열 순서로 순위를 부여하고 `(user_id, preference_rank)` 유일 제약을 적용합니다. 홈 같은 여행지 섹션은 1순위만 사용하지만 메이트 추천은 모든 선호를 OR로 적용합니다. 상세 계약은 [여행지 선호와 홈 같은 여행지 동행](./007-travel-preferences-and-home-destination-trips.md)을 참고합니다.
 
 `user_recommendation_destination_preferences`는 중복 문자열 키를 저장하지 않습니다. `COUNTRY`는 `(user_id, preference_type, country_code)`, `CITY`는 `(user_id, preference_type, destination_id)` unique key로 중복을 막습니다.
 
@@ -349,7 +342,7 @@ MVP에서는 패스 취소 기능을 제공하지 않습니다. 한 번 패스�
 
 ## 관련 문서
 
-- [홈 여행방 추천 정책](../001-policy/001-recommendation-policy.md)
+- [홈 메이트 추천 정책](../001-policy/001-home-mate-recommendation-policy.md)
 - [홈 API 섹션 기반 로딩 ADR](../008-adr/006-home-api-section-based-loading.md)
 - [도메인 명세](../002-design/001-domain.md)
 - [데이터 명세](../002-design/002-data.md)

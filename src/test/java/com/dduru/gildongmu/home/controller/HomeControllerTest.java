@@ -9,6 +9,10 @@ import com.dduru.gildongmu.common.time.KoreaTime;
 import com.dduru.gildongmu.common.time.TimeProvider;
 import com.dduru.gildongmu.common.util.JsonConverter;
 import com.dduru.gildongmu.home.mapper.HomeRecommendationMapper;
+import com.dduru.gildongmu.home.repository.HomeTripQueryRepository;
+import com.dduru.gildongmu.home.dto.response.SameAgeTripResponse;
+import com.dduru.gildongmu.profile.repository.ProfileRepository;
+import com.dduru.gildongmu.profile.exception.BirthdayNotFoundException;
 import com.dduru.gildongmu.home.service.HomeOverviewQueryService;
 import com.dduru.gildongmu.home.service.HomePopularDestinationQueryService;
 import com.dduru.gildongmu.home.service.HomeRecommendationQueryService;
@@ -32,6 +36,7 @@ import com.dduru.gildongmu.recommendation.dto.query.MateRecommendationCardQueryR
 import com.dduru.gildongmu.recommendation.dto.result.DailyMateRecommendationResult;
 import com.dduru.gildongmu.recommendation.dto.result.MateRecommendationQueryResult;
 import com.dduru.gildongmu.recommendation.exception.RecommendationTendencyMissingException;
+import com.dduru.gildongmu.recommendation.repository.UserRecommendationDestinationPreferenceRepository;
 import com.dduru.gildongmu.recommendation.service.DailyMateRecommendationQueryService;
 import com.dduru.gildongmu.recommendation.service.DailyMateRecommendationService;
 import com.dduru.gildongmu.recommendation.service.VisibleMateRecommendationCardQueryService;
@@ -52,8 +57,6 @@ import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
 
-import com.dduru.gildongmu.recommendation.repository.UserRecommendationDestinationPreferenceRepository;
-import com.dduru.gildongmu.home.service.HomeDestinationTripQueryService;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -61,11 +64,7 @@ import java.util.List;
 
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.Answers.CALLS_REAL_METHODS;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -157,6 +156,20 @@ class HomeControllerTest {
                 .andExpect(jsonPath("$.data.sections[4].disabledReason").value("DESTINATION_PREFERENCE_REQUIRED"))
                 .andExpect(jsonPath("$.data.sections[5].enabled").value(true))
                 .andExpect(jsonPath("$.data.sections[2].disabledReason").value(nullValue()));
+    }
+
+    @Test
+    @DisplayName("진행·예정 여정이 없는 회원은 해당 홈 섹션이 비활성화된다")
+    void retrieveHome_memberWithoutCurrentOrUpcomingJourney() throws Exception {
+        MockMvc mockMvc = mockMvcWithUser(10L, onboardingRepository(false),
+                DailyMateRecommendationResult.available(1L, MateRecommendationBatchStatus.EMPTY, null), false);
+
+        mockMvc.perform(get(HomeEndpoints.HOME))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.sections[0].key").value("UPCOMING_TRIP"))
+                .andExpect(jsonPath("$.data.sections[0].enabled").value(false))
+                .andExpect(jsonPath("$.data.sections[0].disabledReason")
+                        .value("NO_CURRENT_OR_UPCOMING_JOURNEY"));
     }
 
     @Test
@@ -291,9 +304,30 @@ class HomeControllerTest {
         mockMvc.perform(get(HomeEndpoints.SAME_AGE_TRIPS))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value(200))
-                .andExpect(jsonPath("$.data.length()").value(3))
-                .andExpect(jsonPath("$.data[0].postId").value(701))
-                .andExpect(jsonPath("$.data[0].startDate").value("2026-05-26"));
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].postId").value(901))
+                .andExpect(jsonPath("$.data[0].startDate").value("2026-05-26"))
+                .andExpect(jsonPath("$.data[0].endDate").value("2026-05-28"))
+                .andExpect(jsonPath("$.data[0].location").value("도쿄"))
+                .andExpect(jsonPath("$.data[0].thumbnailUrl").value(nullValue()));
+    }
+
+    @Test
+    @DisplayName("생년월일이 없으면 또래 여행 조회는 404와 오류 코드를 반환한다")
+    void retrieveSameAgeTrips_missingBirthday() throws Exception {
+        HomeTripQueryService service = mock(HomeTripQueryService.class);
+        when(service.retrieveSameAgeTrips(10L)).thenThrow(new BirthdayNotFoundException());
+        MockMvc mvc = standaloneSetup(new HomeController(
+                mock(HomeOverviewQueryService.class), service,
+                mock(HomePopularDestinationQueryService.class), mock(HomeRecommendationQueryService.class),
+                mock(HomeSuperHostQueryService.class)))
+                .setCustomArgumentResolvers(new FixedCurrentUserArgumentResolver(10L))
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .build();
+
+        mvc.perform(get(HomeEndpoints.SAME_AGE_TRIPS))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.data.errorCode").value("BIRTHDAY_NOT_FOUND"));
     }
 
     @Test
@@ -401,16 +435,35 @@ class HomeControllerTest {
             UserOnboardingRepository userOnboardingRepository,
             DailyMateRecommendationResult dailyResult
     ) {
+        return mockMvcWithUser(userId, userOnboardingRepository, dailyResult, true);
+    }
+
+    private MockMvc mockMvcWithUser(
+            Long userId,
+            UserOnboardingRepository userOnboardingRepository,
+            DailyMateRecommendationResult dailyResult,
+            boolean hasCurrentOrUpcomingJourney
+    ) {
         DailyMateRecommendationService dailyService = mock(DailyMateRecommendationService.class);
         when(dailyService.getOrCreate(userId)).thenReturn(dailyResult);
         return mockMvcWithQueryService(userId, userOnboardingRepository,
-                new DailyMateRecommendationQueryService(dailyService, mock(VisibleMateRecommendationCardQueryService.class)));
+                new DailyMateRecommendationQueryService(dailyService, mock(VisibleMateRecommendationCardQueryService.class)),
+                hasCurrentOrUpcomingJourney);
     }
 
     private MockMvc mockMvcWithQueryService(
             Long userId,
             UserOnboardingRepository userOnboardingRepository,
             DailyMateRecommendationQueryService dailyMateRecommendationQueryService
+    ) {
+        return mockMvcWithQueryService(userId, userOnboardingRepository, dailyMateRecommendationQueryService, true);
+    }
+
+    private MockMvc mockMvcWithQueryService(
+            Long userId,
+            UserOnboardingRepository userOnboardingRepository,
+            DailyMateRecommendationQueryService dailyMateRecommendationQueryService,
+            boolean hasCurrentOrUpcomingJourney
     ) {
         TimeProvider timeProvider = new TimeProvider(Clock.fixed(
                 LocalDateTime.of(2026, 5, 13, 12, 30)
@@ -429,6 +482,14 @@ class HomeControllerTest {
         );
         JourneyRepository journeyRepository = mock(JourneyRepository.class, CALLS_REAL_METHODS);
         JourneyScheduleRepository journeyScheduleRepository = mock(JourneyScheduleRepository.class);
+        UserRecommendationDestinationPreferenceRepository preferenceRepository = mock(UserRecommendationDestinationPreferenceRepository.class);
+        HomeTripQueryRepository queryRepository = mock(HomeTripQueryRepository.class);
+        ProfileRepository profileRepository = mock(ProfileRepository.class);
+        when(profileRepository.findBirthdayByUserId(userId))
+                .thenReturn(java.util.Optional.of(LocalDate.of(1996, 5, 13)));
+        when(queryRepository.findSameAgeTrips(userId, LocalDate.of(2026, 5, 13), 30))
+                .thenReturn(List.of(new SameAgeTripResponse(901L, "또래 동행", "도쿄",
+                        LocalDate.of(2026, 5, 26), LocalDate.of(2026, 5, 28), 1, 4, null)));
         Journey journey = mock(Journey.class);
         Post post = mock(Post.class);
         LocalDate startDate = LocalDate.of(2026, 5, 25);
@@ -445,19 +506,22 @@ class HomeControllerTest {
                 LocalDate.of(2026, 5, 13),
                 Pageable.ofSize(1)
         )).thenReturn(List.of(journey));
+        when(journeyRepository.existsCurrentOrUpcomingJourney(userId, LocalDate.of(2026, 5, 13)))
+                .thenReturn(hasCurrentOrUpcomingJourney);
 
         return standaloneSetup(new HomeController(
-                new HomeOverviewQueryService(onboardingService, mock(UserRecommendationDestinationPreferenceRepository.class)),
+                new HomeOverviewQueryService(onboardingService, preferenceRepository, journeyRepository, timeProvider),
                 new HomeTripQueryService(
                         timeProvider,
-                        onboardingService,
+                        profileRepository,
                         journeyScheduleRepository,
-                        journeyRepository
+                        journeyRepository,
+                        preferenceRepository,
+                        queryRepository
                 ),
                 new HomePopularDestinationQueryService(timeProvider),
                 new HomeRecommendationQueryService(dailyMateRecommendationQueryService, recommendationMapper),
-                new HomeSuperHostQueryService(timeProvider),
-                mock(HomeDestinationTripQueryService.class)
+                new HomeSuperHostQueryService(timeProvider)
         ))
                 .setCustomArgumentResolvers(new FixedCurrentUserArgumentResolver(userId))
                 .setMessageConverters(new MappingJackson2HttpMessageConverter(objectMapper))

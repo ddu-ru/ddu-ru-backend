@@ -52,6 +52,7 @@ public enum ErrorCode {
     INVALID_TRAVEL_TENDENCY_SCORE(HttpStatus.BAD_REQUEST, "여행 성향 점수는 0.0 이상 10.0 이하로 입력해야 합니다."),
 
     // 프로필 (PROFILE)
+    BIRTHDAY_NOT_FOUND(HttpStatus.NOT_FOUND, "생년월일을 찾을 수 없습니다."),
     BG_COLOR_NOT_FOUND(HttpStatus.NOT_FOUND, "배경색을 찾을 수 없습니다."),
     INVALID_PROFILE_IMAGE_URL(HttpStatus.BAD_REQUEST, "프로필 이미지 URL이 유효하지 않습니다."),
     USER_ONBOARDING_NOT_FOUND(HttpStatus.NOT_FOUND, "유저 온보딩 정보를 찾을 수 없습니다."),
@@ -180,7 +181,7 @@ public enum ErrorCode {
     INVALID_MATE_RECOMMENDATION_RANK(HttpStatus.BAD_REQUEST, "추천 순위가 허용 범위를 벗어났습니다."),
     INVALID_MATE_RECOMMENDATION_MATCH_PERCENTAGE(HttpStatus.BAD_REQUEST, "추천 일치율이 허용 범위를 벗어났습니다."),
 
-    // 여행 선호 설정 (TRAVEL_PREFERENCE)
+    // 여행 선호 설정 (TRAVEL_PREFERENCE),
     INVALID_AVAILABLE_DATE(HttpStatus.BAD_REQUEST, "여행 가능 종료일은 시작일과 같거나 이후여야 합니다."),
     DUPLICATE_AVAILABLE_DATE(HttpStatus.BAD_REQUEST, "중복된 여행 가능 날짜가 있습니다."),
     INVALID_DESTINATION_PREFERENCE(HttpStatus.BAD_REQUEST, "잘못된 여행지 선호 입력입니다.");
