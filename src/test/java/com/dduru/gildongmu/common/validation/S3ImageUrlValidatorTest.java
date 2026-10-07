@@ -6,6 +6,8 @@ import com.dduru.gildongmu.s3.enums.S3ImageDirectory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -73,6 +75,15 @@ class S3ImageUrlValidatorTest {
     void validateAndNormalize_invalidImageExtension_throwsNotAllowed() {
         assertThatThrownBy(() -> validator.validateAndNormalize(
                 "https://dummy-bucket.s3.ap-northeast-2.amazonaws.com/journeys/test.txt",
+                S3ImageDirectory.JOURNEYS
+        )).hasMessage(ErrorCode.IMAGE_URL_NOT_ALLOWED.getMessage());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"gif", "GIF"})
+    void validateAndNormalize_gif_rejected(String extension) {
+        assertThatThrownBy(() -> validator.validateAndNormalize(
+                "https://dummy-bucket.s3.ap-northeast-2.amazonaws.com/journeys/test." + extension,
                 S3ImageDirectory.JOURNEYS
         )).hasMessage(ErrorCode.IMAGE_URL_NOT_ALLOWED.getMessage());
     }

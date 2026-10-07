@@ -133,6 +133,7 @@ public enum ErrorCode {
     FILE_UPLOAD_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "파일 업로드에 실패했습니다."),
     EMPTY_FILE(HttpStatus.BAD_REQUEST, "업로드할 파일이 없습니다."),
     INVALID_FILE_EXTENSION(HttpStatus.BAD_REQUEST, "허용되지 않는 파일 확장자입니다."),
+    INVALID_FILE_SIZE(HttpStatus.BAD_REQUEST, "파일 크기는 1바이트 이상 5MB 이하여야 합니다."),
 
     // 슈퍼호스트 (SUPER_HOST)
     SUPER_HOST_TICKET_NOT_FOUND(HttpStatus.NOT_FOUND, "사용 가능한 슈퍼호스트 티켓이 없습니다."),
