@@ -76,14 +76,17 @@ class HomeSuperHostQueryRepositoryTest {
                 "end_date = '2026-10-02'");
         change(exposedPost(user("deleted"), NOW.minusHours(1), NOW.plusDays(2)), "is_deleted = true");
 
-        assertThat(repository.findVisibleSuperHosts(viewer.getId(), NOW, TODAY))
+        List<Long> candidateIds = repository.findVisibleCandidatePostIds(NOW, TODAY);
+
+        assertThat(candidateIds).containsExactlyInAnyOrder(ownPost.getId(), reported.getId());
+        assertThat(repository.findVisibleSuperHosts(viewer.getId(), NOW, TODAY, candidateIds))
                 .extracting("postId")
                 .containsExactly(ownPost.getId());
     }
 
     @Test
-    @DisplayName("비회원에게도 최신 노출부터 최대 5개만 반환한다")
-    void limitsGuestResultsToFive() {
+    @DisplayName("후보 ID와 선택된 ID의 상세 정보를 분리해 조회한다")
+    void retrievesCandidateIdsAndSelectedDetails() {
         List<Long> candidateIds = IntStream.range(0, 6)
                 .mapToObj(index -> exposedPost(
                         user("host-" + index),
@@ -92,16 +95,21 @@ class HomeSuperHostQueryRepositoryTest {
                 ).getId())
                 .toList();
 
-        var result = repository.findVisibleSuperHosts(null, NOW, TODAY);
+        assertThat(repository.findVisibleCandidatePostIds(NOW, TODAY))
+                .containsExactlyInAnyOrderElementsOf(candidateIds);
+
+        var result = repository.findVisibleSuperHosts(null, NOW, TODAY, candidateIds.subList(0, 5));
 
         assertThat(result).hasSize(5);
-        assertThat(result).extracting("postId").containsExactlyElementsOf(candidateIds.subList(0, 5));
+        assertThat(result).extracting("postId")
+                .containsExactlyInAnyOrderElementsOf(candidateIds.subList(0, 5));
     }
 
     @Test
     @DisplayName("노출 가능한 후보가 없으면 빈 목록을 반환한다")
     void returnsEmptyList() {
-        assertThat(repository.findVisibleSuperHosts(viewer.getId(), NOW, TODAY)).isEmpty();
+        assertThat(repository.findVisibleCandidatePostIds(NOW, TODAY)).isEmpty();
+        assertThat(repository.findVisibleSuperHosts(viewer.getId(), NOW, TODAY, List.of())).isEmpty();
     }
 
     private Post exposedPost(User host, LocalDateTime startedAt, LocalDateTime endedAt) {

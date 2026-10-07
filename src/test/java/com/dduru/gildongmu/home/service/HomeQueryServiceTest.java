@@ -4,6 +4,7 @@ import com.dduru.gildongmu.common.exception.ErrorCode;
 import com.dduru.gildongmu.common.time.KoreaTime;
 import com.dduru.gildongmu.common.time.TimeProvider;
 import com.dduru.gildongmu.common.util.JsonConverter;
+import com.dduru.gildongmu.home.cache.HomeSuperHostCandidateCache;
 import com.dduru.gildongmu.home.dto.query.HomeSuperHostQueryResult;
 import com.dduru.gildongmu.home.dto.response.HomePopularDestinationResponse;
 import com.dduru.gildongmu.home.dto.response.HomeSuperHostResponse;
@@ -69,6 +70,7 @@ class HomeQueryServiceTest {
     private HomeRecommendationQueryService recommendationQueryService;
     private HomeSuperHostQueryService superHostQueryService;
     private TimeProvider timeProvider;
+    private HomeSuperHostCandidateCache superHostCandidateCache;
     private HomeSuperHostQueryRepository superHostQueryRepository;
     private PostLikeRepository postLikeRepository;
 
@@ -106,12 +108,14 @@ class HomeQueryServiceTest {
                         new JsonConverter(objectMapper)
                 )
         );
+        superHostCandidateCache = mock(HomeSuperHostCandidateCache.class);
         superHostQueryRepository = mock(HomeSuperHostQueryRepository.class);
         postLikeRepository = mock(PostLikeRepository.class);
         ProfileImageResolver profileImageResolver = mock(ProfileImageResolver.class);
         when(profileImageResolver.resolve(ProfileImageType.DEFAULT, null, null))
                 .thenReturn("https://example.com/default.png");
         superHostQueryService = new HomeSuperHostQueryService(
+                superHostCandidateCache,
                 superHostQueryRepository,
                 postLikeRepository,
                 profileImageResolver,
@@ -285,7 +289,9 @@ class HomeQueryServiceTest {
     @Test
     @DisplayName("실제 슈퍼호스트 카드와 회원의 좋아요 여부를 반환한다")
     void superHosts() {
-        when(superHostQueryRepository.findVisibleSuperHosts(10L, NOW, NOW.toLocalDate()))
+        when(superHostCandidateCache.retrieve())
+                .thenReturn(new HomeSuperHostCandidateCache.CandidatePostIds(List.of(501L)));
+        when(superHostQueryRepository.findVisibleSuperHosts(10L, NOW, NOW.toLocalDate(), List.of(501L)))
                 .thenReturn(List.of(superHostQueryResult()));
         when(postLikeRepository.findLikedPostIdsByUserId(10L, List.of(501L)))
                 .thenReturn(Set.of(501L));
@@ -301,18 +307,44 @@ class HomeQueryServiceTest {
     }
 
     @Test
+    @DisplayName("캐시 후보를 섞은 뒤 최대 5개만 반환한다")
+    void shufflesCandidatesAndLimitsResults() {
+        List<Long> candidateIds = List.of(501L, 502L, 503L, 504L, 505L, 506L);
+        when(superHostCandidateCache.retrieve())
+                .thenReturn(new HomeSuperHostCandidateCache.CandidatePostIds(candidateIds));
+        when(superHostQueryRepository.findVisibleSuperHosts(eq(10L), eq(NOW), eq(NOW.toLocalDate()), anyList()))
+                .thenAnswer(invocation -> {
+                    List<Long> selectedIds = invocation.getArgument(3);
+                    return selectedIds.stream().map(this::superHostQueryResult).toList();
+                });
+        when(postLikeRepository.findLikedPostIdsByUserId(eq(10L), anyList())).thenReturn(Set.of());
+
+        List<HomeSuperHostResponse> response = superHostQueryService.retrieve(10L);
+
+        assertThat(response).hasSize(5);
+        assertThat(response).extracting(HomeSuperHostResponse::postId)
+                .doesNotHaveDuplicates()
+                .isSubsetOf(candidateIds);
+    }
+
+    @Test
     @DisplayName("노출 가능한 슈퍼호스트가 없으면 빈 배열을 반환한다")
     void emptySuperHosts() {
-        when(superHostQueryRepository.findVisibleSuperHosts(null, NOW, NOW.toLocalDate()))
-                .thenReturn(List.of());
+        when(superHostCandidateCache.retrieve())
+                .thenReturn(new HomeSuperHostCandidateCache.CandidatePostIds(List.of()));
 
         assertThat(superHostQueryService.retrieve(null)).isEmpty();
         verifyNoInteractions(postLikeRepository);
+        verifyNoInteractions(superHostQueryRepository);
     }
 
     private HomeSuperHostQueryResult superHostQueryResult() {
+        return superHostQueryResult(501L);
+    }
+
+    private HomeSuperHostQueryResult superHostQueryResult(Long postId) {
         return new HomeSuperHostQueryResult(
-                501L,
+                postId,
                 "제주 동쪽 일출 투어",
                 "대한민국",
                 "제주",
