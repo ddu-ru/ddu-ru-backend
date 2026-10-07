@@ -52,6 +52,7 @@ V30 마이그레이션으로 NOT NULL 컬럼, 1~3 CHECK, `(user_id, preference_r
 ## 홈 조회
 
 `GET /api/v1/home/same-destination-trips`는 로그인 필수이며 기존 카드 배열 응답을 유지합니다.
+홈 섹션의 공통 응답·캐시·운영 기준은 [홈 섹션 조회 정책](./009-home-section-query-policy.md)을 따릅니다.
 1순위 도시 ID 또는 국가 코드에 일치하는 게시글만 조회합니다. 국가 선호는 해당 국가 전체 도시를 포함합니다.
 2·3순위로 보충하지 않고, 최근 검색·인기 여행지로도 대체하지 않습니다.
 
