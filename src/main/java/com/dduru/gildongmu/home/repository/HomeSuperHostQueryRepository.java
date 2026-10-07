@@ -12,6 +12,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 
 import static com.dduru.gildongmu.destination.domain.QDestination.destination;
@@ -27,15 +28,27 @@ import static com.dduru.gildongmu.user.domain.QUser.user;
 @RequiredArgsConstructor
 public class HomeSuperHostQueryRepository {
 
-    private static final long HOME_SUPER_HOST_LIMIT = 5L;
-
     private final JPAQueryFactory queryFactory;
+
+    public List<Long> findVisibleCandidatePostIds(LocalDateTime now, LocalDate today) {
+        return queryFactory
+                .select(post.id)
+                .distinct()
+                .from(superHostExposure)
+                .join(superHostExposure.post, post)
+                .where(isCurrentlyVisible(now, today))
+                .fetch();
+    }
 
     public List<HomeSuperHostQueryResult> findVisibleSuperHosts(
             Long viewerId,
             LocalDateTime now,
-            LocalDate today
+            LocalDate today,
+            Collection<Long> postIds
     ) {
+        if (postIds.isEmpty()) {
+            return List.of();
+        }
         return queryFactory
                 .select(new QHomeSuperHostQueryResult(
                         post.id,
@@ -65,19 +78,22 @@ public class HomeSuperHostQueryRepository {
                 .leftJoin(profile.avatar, avatarProfile)
                 .leftJoin(profile.bgColor, bgColor)
                 .where(
-                        superHostExposure.status.eq(SuperHostExposureStatus.ACTIVE),
-                        superHostExposure.startedAt.loe(now),
-                        superHostExposure.endedAt.gt(now),
-                        post.isDeleted.isFalse(),
-                        post.status.eq(PostStatus.OPEN),
-                        post.recruitCount.lt(post.recruitCapacity),
-                        post.endDate.goe(today),
-                        post.recruitDeadline.isNull().or(post.recruitDeadline.goe(today)),
+                        post.id.in(postIds),
+                        isCurrentlyVisible(now, today),
                         notReportedBy(viewerId)
                 )
-                .orderBy(superHostExposure.startedAt.desc(), superHostExposure.id.desc())
-                .limit(HOME_SUPER_HOST_LIMIT)
                 .fetch();
+    }
+
+    private BooleanExpression isCurrentlyVisible(LocalDateTime now, LocalDate today) {
+        return superHostExposure.status.eq(SuperHostExposureStatus.ACTIVE)
+                .and(superHostExposure.startedAt.loe(now))
+                .and(superHostExposure.endedAt.gt(now))
+                .and(post.isDeleted.isFalse())
+                .and(post.status.eq(PostStatus.OPEN))
+                .and(post.recruitCount.lt(post.recruitCapacity))
+                .and(post.endDate.goe(today))
+                .and(post.recruitDeadline.isNull().or(post.recruitDeadline.goe(today)));
     }
 
     private BooleanExpression notReportedBy(Long viewerId) {
