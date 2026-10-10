@@ -116,11 +116,13 @@ class NotificationRepositoryTest {
         Long otherId = persistNotification(otherRecipient, NotificationType.MATCH_APPLIED, NOW);
         Long deletedId = persistNotification(recipient, NotificationType.SCHEDULE_CREATED, NOW);
         deleteNotification(deletedId);
-        Long laterId = persistNotification(recipient, NotificationType.MATCH_APPLIED, NOW.plusSeconds(1));
+        Long laterId = persistNotification(recipient, NotificationType.MATCH_APPLIED, NOW.plusMinutes(2));
 
         assertThat(notificationRepository.markAllAsReadByRecipientId(recipient.getId(), SINCE, NOW)).isEqualTo(1);
-        assertThat(notificationRepository.markAllAsReadByRecipientId(recipient.getId(), SINCE, NOW)).isZero();
+        assertThat(notificationRepository.getByIdOrThrow(targetId).getModifiedAt()).isEqualTo(NOW);
+        assertThat(notificationRepository.markAllAsReadByRecipientId(recipient.getId(), SINCE, NOW.plusMinutes(1))).isZero();
         assertThat(notificationRepository.getByIdOrThrow(targetId).getReadAt()).isEqualTo(NOW);
+        assertThat(notificationRepository.getByIdOrThrow(targetId).getModifiedAt()).isEqualTo(NOW);
         for (Long id : List.of(oldId, otherId, deletedId, laterId)) {
             assertThat(notificationRepository.getByIdOrThrow(id).isRead()).isFalse();
         }
@@ -130,16 +132,20 @@ class NotificationRepositoryTest {
     @DisplayName("전체 삭제는 본인의 최근 한 달만 숨기고 발송 이력 및 다른 사용자 알림을 보존한다")
     void softDeletePreservesHistoryAndOtherUsersNotifications() {
         Long matchId = persistNotification(recipient, NotificationType.MATCH_APPLIED, SINCE);
-        Long tripId = persistNotification(recipient, NotificationType.TRIP_UPCOMING, NOW);
+        Long tripId = persistNotification(recipient, NotificationType.TRIP_UPCOMING, NOW.minusHours(1));
         Long oldId = persistNotification(recipient, NotificationType.MATCH_APPLIED, SINCE.minusSeconds(1));
         Long otherId = persistNotification(otherRecipient, NotificationType.TRIP_UPCOMING, NOW);
 
         assertThat(notificationRepository.softDeleteAllByRecipientId(recipient.getId(), SINCE, NOW)).isEqualTo(2);
-        assertThat(notificationRepository.softDeleteAllByRecipientId(recipient.getId(), SINCE, NOW)).isZero();
+        assertThat(notificationRepository.getByIdOrThrow(matchId).getModifiedAt()).isEqualTo(NOW);
+        assertThat(notificationRepository.getByIdOrThrow(tripId).getModifiedAt()).isEqualTo(NOW);
+        assertThat(notificationRepository.softDeleteAllByRecipientId(recipient.getId(), SINCE, NOW.plusMinutes(1))).isZero();
         assertThat(page(NotificationFilter.ALL, null, 20)).isEmpty();
         assertThat(notificationRepository.countUnreadByType(recipient.getId(), SINCE)).isEmpty();
         assertThat(notificationRepository.getByIdOrThrow(matchId).getDeletedAt()).isEqualTo(NOW);
         assertThat(notificationRepository.getByIdOrThrow(tripId).getDeletedAt()).isEqualTo(NOW);
+        assertThat(notificationRepository.getByIdOrThrow(matchId).getModifiedAt()).isEqualTo(NOW);
+        assertThat(notificationRepository.getByIdOrThrow(tripId).getModifiedAt()).isEqualTo(NOW);
         assertThat(notificationRepository.getByIdOrThrow(oldId).getDeletedAt()).isNull();
         assertThat(notificationRepository.getByIdOrThrow(otherId).getDeletedAt()).isNull();
         assertThat(notificationRepository.findNotifiedRecipientIds(NotificationType.TRIP_UPCOMING,
@@ -155,13 +161,32 @@ class NotificationRepositoryTest {
 
         assertThat(notificationRepository.markAsReadByIdAndRecipientId(targetId, recipient.getId(), SINCE, NOW))
                 .isEqualTo(1);
+        assertThat(notificationRepository.getByIdOrThrow(targetId).getModifiedAt()).isEqualTo(NOW);
         assertThat(notificationRepository.markAsReadByIdAndRecipientId(targetId, recipient.getId(), SINCE, NOW.plusMinutes(1)))
                 .isZero();
 
         Notification notification = notificationRepository.getByIdOrThrow(targetId);
         assertThat(notification.isRead()).isTrue();
         assertThat(notification.getReadAt()).isEqualTo(NOW);
+        assertThat(notification.getModifiedAt()).isEqualTo(NOW);
         assertThat(notificationRepository.getByIdOrThrow(untouchedId).isRead()).isFalse();
+    }
+
+    @Test
+    @DisplayName("읽은 알림을 삭제하면 읽음 시각은 유지하고 수정 시각은 삭제 시각으로 갱신한다")
+    void deletionAfterReadUpdatesOnlyLastModifiedTime() {
+        Long id = persistNotification(recipient, NotificationType.MATCH_APPLIED, SINCE);
+        LocalDateTime deletedAt = NOW.plusMinutes(1);
+
+        notificationRepository.markAsReadByIdAndRecipientId(id, recipient.getId(), SINCE, NOW);
+        notificationRepository.softDeleteAllByRecipientId(recipient.getId(), SINCE, deletedAt);
+        assertThat(notificationRepository.markAsReadByIdAndRecipientId(id, recipient.getId(), SINCE, NOW.plusMinutes(2)))
+                .isZero();
+
+        Notification notification = notificationRepository.getByIdOrThrow(id);
+        assertThat(notification.getReadAt()).isEqualTo(NOW);
+        assertThat(notification.getDeletedAt()).isEqualTo(deletedAt);
+        assertThat(notification.getModifiedAt()).isEqualTo(deletedAt);
     }
 
     @Test

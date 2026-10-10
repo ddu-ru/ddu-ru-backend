@@ -53,7 +53,7 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("""
             UPDATE Notification n
-            SET n.read = true, n.readAt = :now
+            SET n.read = true, n.readAt = :now, n.modifiedAt = :now
             WHERE n.id = :notificationId AND n.recipient.id = :userId
               AND n.read = false AND n.deletedAt IS NULL
               AND n.createdAt >= :since
@@ -67,7 +67,7 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("""
             UPDATE Notification n
-            SET n.read = true, n.readAt = :now
+            SET n.read = true, n.readAt = :now, n.modifiedAt = :now
             WHERE n.recipient.id = :userId AND n.read = false
               AND n.deletedAt IS NULL
               AND n.createdAt >= :since AND n.createdAt <= :now
@@ -77,7 +77,7 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("""
-            UPDATE Notification n SET n.deletedAt = :now
+            UPDATE Notification n SET n.deletedAt = :now, n.modifiedAt = :now
             WHERE n.recipient.id = :userId AND n.deletedAt IS NULL
               AND n.createdAt >= :since AND n.createdAt <= :now
             """)
