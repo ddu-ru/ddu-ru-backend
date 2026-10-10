@@ -4,12 +4,15 @@ import com.dduru.gildongmu.common.time.TimeProvider;
 import com.dduru.gildongmu.notification.domain.Notification;
 import com.dduru.gildongmu.notification.dto.response.NotificationReadResponse;
 import com.dduru.gildongmu.notification.exception.NotificationAccessDeniedException;
+import com.dduru.gildongmu.notification.exception.NotificationNotFoundException;
 import com.dduru.gildongmu.notification.repository.NotificationRepository;
 import com.dduru.gildongmu.user.domain.User;
 import com.dduru.gildongmu.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -27,16 +30,26 @@ public class NotificationService {
             throw new NotificationAccessDeniedException();
         }
 
+        LocalDateTime now = timeProvider.now();
+        if (!notification.isVisibleSince(now.minusMonths(1))) {
+            throw new NotificationNotFoundException();
+        }
         if (notification.isUnread()) {
-            notification.markAsRead(timeProvider.now());
+            notificationRepository.markAsReadByIdAndRecipientId(notificationId, userId, now.minusMonths(1), now);
         }
 
         return NotificationReadResponse.ok();
     }
 
     public NotificationReadResponse markAllAsRead(Long userId) {
-        notificationRepository.markAllAsReadByRecipientId(userId, timeProvider.now());
+        LocalDateTime now = timeProvider.now();
+        notificationRepository.markAllAsReadByRecipientId(userId, now.minusMonths(1), now);
         return NotificationReadResponse.ok();
+    }
+
+    public void deleteAllNotifications(Long userId) {
+        LocalDateTime now = timeProvider.now();
+        notificationRepository.softDeleteAllByRecipientId(userId, now.minusMonths(1), now);
     }
 
     public void updateNotificationSettings(Long userId, boolean enabled) {

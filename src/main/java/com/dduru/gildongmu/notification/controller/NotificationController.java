@@ -29,7 +29,7 @@ public class NotificationController implements NotificationApiDocs {
             @CurrentUser Long userId,
             @Valid @ModelAttribute NotificationListRequest request
     ) {
-        return ResponseEntity.ok(ApiResult.ok(notificationQueryService.getNotifications(userId, request.cursor(), request.sizeOrDefault())));
+        return ResponseEntity.ok(ApiResult.ok(notificationQueryService.getNotifications(userId, request)));
     }
 
     @Override
@@ -55,6 +55,13 @@ public class NotificationController implements NotificationApiDocs {
             @CurrentUser Long userId
     ) {
         return ResponseEntity.ok(ApiResult.ok(notificationService.markAllAsRead(userId)));
+    }
+
+    @Override
+    @DeleteMapping
+    public ResponseEntity<ApiResult<Void>> deleteAllNotifications(@CurrentUser Long userId) {
+        notificationService.deleteAllNotifications(userId);
+        return ResponseEntity.noContent().build();
     }
 
     @Override
