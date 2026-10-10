@@ -46,6 +46,9 @@ public class Notification extends BaseTimeEntity {
     @Column(name = "read_at")
     private LocalDateTime readAt;
 
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
     @Builder(access = AccessLevel.PRIVATE)
     private Notification(User recipient, NotificationType type, String body,
                          ResourceType resourceType, Long resourceId) {
@@ -81,8 +84,7 @@ public class Notification extends BaseTimeEntity {
         return !read;
     }
 
-    public void markAsRead(LocalDateTime now) {
-        this.read = true;
-        this.readAt = now;
+    public boolean isVisibleSince(LocalDateTime since) {
+        return deletedAt == null && !getCreatedAt().isBefore(since);
     }
 }

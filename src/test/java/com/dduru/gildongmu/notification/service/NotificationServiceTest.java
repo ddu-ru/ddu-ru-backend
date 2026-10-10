@@ -28,6 +28,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -58,19 +59,73 @@ class NotificationServiceTest {
     class MarkAsRead {
 
         @Test
-        @DisplayName("미읽음 알림을 읽음 처리하면 read=true, readAt이 기록되고 success=true를 반환한다")
+        @DisplayName("삭제된 알림은 읽음 처리할 수 없다")
+        void deletedNotificationThrowsNotFound() {
+            Notification notification = createUnreadNotification(10L, createUser(1L));
+            ReflectionTestUtils.setField(notification, "deletedAt", NOW.minusHours(1));
+            when(notificationRepository.getByIdOrThrow(10L)).thenReturn(notification);
+
+            assertThatThrownBy(() -> notificationService.markAsRead(1L, 10L))
+                    .isInstanceOf(NotificationNotFoundException.class);
+            assertThat(notification.isRead()).isFalse();
+            verify(notificationRepository).getByIdOrThrow(10L);
+            verifyNoMoreInteractions(notificationRepository);
+        }
+
+        @Test
+        @DisplayName("한 달보다 오래된 알림은 읽음 처리할 수 없다")
+        void expiredNotificationThrowsNotFound() {
+            Notification notification = createUnreadNotification(10L, createUser(1L));
+            ReflectionTestUtils.setField(notification, "createdAt", NOW.minusMonths(1).minusSeconds(1));
+            when(notificationRepository.getByIdOrThrow(10L)).thenReturn(notification);
+
+            assertThatThrownBy(() -> notificationService.markAsRead(1L, 10L))
+                    .isInstanceOf(NotificationNotFoundException.class);
+            verify(notificationRepository).getByIdOrThrow(10L);
+            verifyNoMoreInteractions(notificationRepository);
+        }
+
+        @Test
+        @DisplayName("정확히 한 달 전 알림은 읽음 처리할 수 있다")
+        void monthBoundaryIsIncluded() {
+            Notification notification = createUnreadNotification(10L, createUser(1L));
+            ReflectionTestUtils.setField(notification, "createdAt", NOW.minusMonths(1));
+            when(notificationRepository.getByIdOrThrow(10L)).thenReturn(notification);
+
+            notificationService.markAsRead(1L, 10L);
+
+            verify(notificationRepository).markAsReadByIdAndRecipientId(10L, 1L, NOW.minusMonths(1), NOW);
+        }
+
+        @Test
+        @DisplayName("미읽음 알림은 엔티티 변경 없이 조건부 UPDATE로 읽음 처리한다")
         void unreadNotificationIsMarkedAsRead() {
             Long userId = 1L;
             Long notificationId = 10L;
             Notification notification = createUnreadNotification(notificationId, createUser(userId));
 
             when(notificationRepository.getByIdOrThrow(notificationId)).thenReturn(notification);
+            when(notificationRepository.markAsReadByIdAndRecipientId(notificationId, userId, NOW.minusMonths(1), NOW))
+                    .thenReturn(1);
 
             NotificationReadResponse response = notificationService.markAsRead(userId, notificationId);
 
             assertThat(response.success()).isTrue();
-            assertThat(notification.isRead()).isTrue();
-            assertThat(notification.getReadAt()).isEqualTo(NOW);
+            verify(notificationRepository).markAsReadByIdAndRecipientId(notificationId, userId, NOW.minusMonths(1), NOW);
+            assertThat(notification.isRead()).isFalse();
+            assertThat(notification.getReadAt()).isNull();
+        }
+
+        @Test
+        @DisplayName("검증 이후 다른 요청이 먼저 처리하여 UPDATE가 0건이어도 성공한다")
+        void concurrentUpdateIsIdempotent() {
+            Notification notification = createUnreadNotification(10L, createUser(1L));
+            when(notificationRepository.getByIdOrThrow(10L)).thenReturn(notification);
+            when(notificationRepository.markAsReadByIdAndRecipientId(10L, 1L, NOW.minusMonths(1), NOW))
+                    .thenReturn(0);
+
+            assertThat(notificationService.markAsRead(1L, 10L).success()).isTrue();
+            verify(notificationRepository).markAsReadByIdAndRecipientId(10L, 1L, NOW.minusMonths(1), NOW);
         }
 
         @Test
@@ -87,6 +142,8 @@ class NotificationServiceTest {
 
             assertThat(response.success()).isTrue();
             assertThat(notification.getReadAt()).isEqualTo(originalReadAt); // readAt 변경 없음
+            verify(notificationRepository).getByIdOrThrow(notificationId);
+            verifyNoMoreInteractions(notificationRepository);
         }
 
         @Test
@@ -112,6 +169,8 @@ class NotificationServiceTest {
                     .isInstanceOf(NotificationAccessDeniedException.class);
 
             assertThat(notification.isRead()).isFalse(); // 상태 변경 없음
+            verify(notificationRepository).getByIdOrThrow(notificationId);
+            verifyNoMoreInteractions(notificationRepository);
         }
 
         @Test
@@ -144,8 +203,16 @@ class NotificationServiceTest {
             NotificationReadResponse response = notificationService.markAllAsRead(userId);
 
             assertThat(response.success()).isTrue();
-            verify(notificationRepository).markAllAsReadByRecipientId(userId, NOW);
+            verify(notificationRepository).markAllAsReadByRecipientId(userId, NOW.minusMonths(1), NOW);
         }
+    }
+
+    @Test
+    @DisplayName("전체 삭제는 본인의 최근 한 달 알림을 대상으로 소프트 삭제 쿼리를 실행한다")
+    void deleteAllNotificationsUsesVisibleMonth() {
+        notificationService.deleteAllNotifications(1L);
+
+        verify(notificationRepository).softDeleteAllByRecipientId(1L, NOW.minusMonths(1), NOW);
     }
 
     // ── 헬퍼 메서드 ──────────────────────────────────────────────────────────
@@ -170,12 +237,14 @@ class NotificationServiceTest {
                 1L
         );
         ReflectionTestUtils.setField(notification, "id", notificationId);
+        ReflectionTestUtils.setField(notification, "createdAt", NOW.minusDays(1));
         return notification;
     }
 
     private Notification createReadNotification(Long notificationId, User recipient) {
         Notification notification = createUnreadNotification(notificationId, recipient);
-        notification.markAsRead(LocalDateTime.of(2026, 6, 1, 9, 0));
+        ReflectionTestUtils.setField(notification, "read", true);
+        ReflectionTestUtils.setField(notification, "readAt", NOW.minusHours(1));
         return notification;
     }
 }

@@ -14,6 +14,8 @@ public record NotificationInfo(
         Long notificationId,
         @Schema(description = "알림 타입", example = "MATCH_APPLIED")
         NotificationType type,
+        @Schema(description = "알림 제목", example = "매칭 신청 도착")
+        String title,
         @Schema(description = "알림 본문", example = "[일본 여행 모집]에 새로운 참여 신청이 도착했습니다.")
         String body,
         @Schema(description = "연결된 리소스 타입", example = "MATCH")
@@ -30,6 +32,7 @@ public record NotificationInfo(
         return new NotificationInfo(
                 notification.getId(),
                 notification.getType(),
+                notification.getType().getTitle(),
                 notification.getBody(),
                 notification.getResourceType(),
                 notification.getResourceId(),
