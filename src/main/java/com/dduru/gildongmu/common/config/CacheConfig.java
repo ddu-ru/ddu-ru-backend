@@ -12,6 +12,7 @@ import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 import java.time.Duration;
+import java.util.Map;
 
 @Configuration
 @EnableCaching
@@ -27,6 +28,9 @@ public class CacheConfig {
 
         return RedisCacheManager.builder(redisConnectionFactory)
                 .cacheDefaults(defaultConfig)
+                .withInitialCacheConfigurations(Map.of(
+                        "homeSuperHostCandidates", defaultConfig.entryTtl(Duration.ofMinutes(1))
+                ))
                 .build();
     }
 }

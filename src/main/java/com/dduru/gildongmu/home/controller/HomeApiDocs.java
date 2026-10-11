@@ -80,7 +80,9 @@ public interface HomeApiDocs {
 
     @Operation(
             summary = "홈 슈퍼호스트 섹션 조회",
-            description = "홈 슈퍼호스트 섹션 데이터를 조회합니다. 현재는 화면 연동을 위한 mock 데이터 5개를 반환하며 hasLiked는 false입니다."
+            description = "현재 참여 가능한 활성 슈퍼호스트 게시글을 무작위로 최대 5개 조회합니다. "
+                    + "회원이 신고한 글은 제외하고 좋아요 여부를 반영하며, 비회원의 hasLiked는 false입니다. "
+                    + "노출 가능한 게시글이 없으면 빈 배열을 반환합니다."
     )
     @ApiResponse(responseCode = "200", description = "조회 성공")
     ResponseEntity<ApiResult<List<HomeSuperHostResponse>>> retrieveSuperHosts(
