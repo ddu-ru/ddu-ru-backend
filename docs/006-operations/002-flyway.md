@@ -95,3 +95,18 @@ testImplementation 'org.testcontainers:mysql'
 3. 기존 운영 마이그레이션 파일을 수정하지 않는 baseline/squash 적용 방식을 결정합니다.
 4. `FlywayMigrationTest`의 `@Disabled`를 제거합니다.
 5. CI에서 Testcontainers MySQL migration test를 필수로 실행합니다.
+
+
+## 8. 버전 중복 검증
+
+`MigrationVersionUniquenessTest`는 DB 연결 없이 classpath의 versioned SQL을 검사합니다.
+Flyway 버전 비교 규칙으로 중복을 판별하며 일반 테스트에 포함되므로, test 프로필에서 Flyway를 꺼도 번호 충돌을 검출합니다.
+SQL 실행 및 운영 checksum 검증을 대신하지는 않습니다.
+
+V30 충돌은 선호 여행지 순위 migration을 V30으로 유지하고 알림 소프트 삭제 migration을 V32로 이동해 해결했습니다.
+#331 기능 브랜치에서 사용하는 V31 인기 여행지 인덱스와 충돌하지 않도록 V32를 사용하며, 알림 SQL의 내용은 변경하지 않았습니다.
+
+운영 적용 이력은 RDS 호스트 DNS 조회 실패로 확인하지 못했습니다. 저장소 번호만 변경했으며 DB와 Flyway 이력은 수정하지 않았습니다.
+알림 migration이 이미 V30으로 적용된 환경에는 단순 재배포하면 안 됩니다. 배포 전 `flyway_schema_history`의
+version·script·success와 실제 `notifications.deleted_at` 및 인덱스 존재 여부를 확인하고 환경에 맞는 복구안을 정해야 합니다.
+미적용 환경에서는 V32로 적용합니다. 이력 삭제나 자동 repair로 우회하지 않습니다.

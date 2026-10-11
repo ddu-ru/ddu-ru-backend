@@ -136,7 +136,7 @@ UPDATE 시에도 본인·미읽음·미삭제·조회 기간 조건을 확인하
 
 ### 배포
 
-`V30__notification_soft_delete.sql`로 `notifications.deleted_at`과 조회용 인덱스를 추가합니다.
+`V32__notification_soft_delete.sql`로 `notifications.deleted_at`과 조회용 인덱스를 추가합니다.
 기존 알림은 `deleted_at = NULL`이므로 삭제되지 않은 상태로 유지됩니다.
 기존 푸시 payload 및 알림 생성 로직은 변경하지 않습니다.
 
