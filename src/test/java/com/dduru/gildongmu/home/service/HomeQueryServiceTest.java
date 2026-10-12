@@ -6,7 +6,6 @@ import com.dduru.gildongmu.common.time.TimeProvider;
 import com.dduru.gildongmu.common.util.JsonConverter;
 import com.dduru.gildongmu.home.cache.HomeSuperHostCandidateCache;
 import com.dduru.gildongmu.home.dto.query.HomeSuperHostQueryResult;
-import com.dduru.gildongmu.home.dto.response.HomePopularDestinationResponse;
 import com.dduru.gildongmu.home.dto.response.HomeSuperHostResponse;
 import com.dduru.gildongmu.home.dto.response.MateRecommendationResponse;
 import com.dduru.gildongmu.home.enums.UserAccessStatus;
@@ -65,7 +64,6 @@ class HomeQueryServiceTest {
     private DailyMateRecommendationQueryService dailyMateRecommendationQueryService;
     private UserRecommendationDestinationPreferenceRepository preferenceRepository;
     private HomeOverviewQueryService overviewQueryService;
-    private HomePopularDestinationQueryService popularDestinationQueryService;
     private HomeTripQueryService tripQueryService;
     private HomeRecommendationQueryService recommendationQueryService;
     private HomeSuperHostQueryService superHostQueryService;
@@ -91,7 +89,6 @@ class HomeQueryServiceTest {
         overviewQueryService = new HomeOverviewQueryService(
                 onboardingService, preferenceRepository, journeyRepository, timeProvider
         );
-        popularDestinationQueryService = new HomePopularDestinationQueryService(timeProvider);
         tripQueryService = new HomeTripQueryService(
                 timeProvider,
                 mock(ProfileRepository.class),
@@ -169,23 +166,6 @@ class HomeQueryServiceTest {
         var enabled = overviewQueryService.retrieve(10L).sections().get(4);
         assertThat(enabled.enabled()).isTrue();
         assertThat(enabled.disabledReason()).isNull();
-    }
-
-    @Nested
-    @DisplayName("인기 여행지")
-    class PopularDestinations {
-
-        @Test
-        @DisplayName("mock 인기 여행지 5개와 태그를 반환한다")
-        void retrieve() {
-            HomePopularDestinationResponse response = popularDestinationQueryService.retrieve();
-
-            assertThat(response.updatedAt()).isEqualTo(NOW);
-            assertThat(response.items()).hasSize(5);
-            assertThat(response.items().get(0).destinationName()).isEqualTo("제주도");
-            assertThat(response.items().get(0).tags()).containsExactly("힐링", "드라이브", "바다");
-            assertThat(response.items().get(3).tags()).isEmpty();
-        }
     }
 
     @Nested
