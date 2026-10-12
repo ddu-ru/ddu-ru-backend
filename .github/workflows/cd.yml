@@ -82,6 +82,7 @@ jobs:
             export RDS_PASSWORD=${{ secrets.RDS_PASSWORD }}
             export RDS_DATABASE_NAME=${{ secrets.RDS_DATABASE_NAME }}
             export DDL_AUTO=${{ github.event.inputs.ddl_auto || secrets.DDL_AUTO }}
+            export FLYWAY_ENABLED=${{ vars.FLYWAY_ENABLED || 'false' }}
             export KAKAO_REST_CLIENT_ID=${{ secrets.KAKAO_REST_CLIENT_ID }}
             export KAKAO_CLIENT_ID=${{ secrets.KAKAO_CLIENT_ID }}
             export KAKAO_CLIENT_SECRET=${{ secrets.KAKAO_CLIENT_SECRET }}
