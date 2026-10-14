@@ -12,8 +12,8 @@ import com.dduru.gildongmu.superhost.domain.enums.SuperHostTicketSource;
 import com.dduru.gildongmu.superhost.domain.enums.SuperHostTicketStatus;
 import com.dduru.gildongmu.superhost.dto.response.MySuperHostStatusResponse;
 import com.dduru.gildongmu.superhost.dto.response.SuperHostApplyResponse;
+import com.dduru.gildongmu.superhost.dto.response.SuperHostManagePostResponse;
 import com.dduru.gildongmu.superhost.dto.response.SuperHostPostListResponse;
-import com.dduru.gildongmu.superhost.exception.SuperHostAlreadyActiveException;
 import com.dduru.gildongmu.superhost.exception.SuperHostPostNotApplicableException;
 import com.dduru.gildongmu.superhost.exception.SuperHostTicketNotFoundException;
 import com.dduru.gildongmu.superhost.repository.SuperHostExposureRepository;
@@ -30,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -66,13 +67,16 @@ public class SuperHostService {
     }
 
     public SuperHostApplyResponse applyTicketToPost(Long userId, Long postId) {
-        Post post = getApplicablePostOrThrow(postId, userId);
         LocalDateTime now = timeProvider.now();
-        validateNoActiveExposure(userId, now);
+        Post post = getApplicablePostOrThrow(postId, userId, now);
+        endExpiredExposureByPostId(postId, now);
         SuperHostTicket ticket = getUnusedTicketOrThrow(userId);
+        LocalDateTime extensionBase = superHostExposureRepository
+                .findLatestActiveEndedAtByPostId(postId, SuperHostExposureStatus.ACTIVE, now)
+                .orElse(now);
 
         ticket.markUsed(now);
-        LocalDateTime endsAt = now.plusDays(ticket.getBoostDurationDays());
+        LocalDateTime endsAt = extensionBase.plusDays(ticket.getBoostDurationDays());
 
         saveExposure(ticket, post, now, endsAt);
         log.info("슈퍼호스트 티켓 사용 완료 - userId={}, postId={}, ticketId={}", userId, postId, ticket.getId());
@@ -109,16 +113,26 @@ public class SuperHostService {
     public MySuperHostStatusResponse getMyStatus(Long userId) {
         LocalDateTime now = timeProvider.now();
         int unusedCount = getUnusedTicketCount(userId);
+        List<Post> manageablePosts = postRepository.findSuperHostManageablePostsByUserId(
+                userId,
+                PostStatus.OPEN,
+                now.toLocalDate()
+        );
+        Map<Long, LocalDateTime> activeEndsAtByPostId = findActiveSuperHostExposures(
+                manageablePosts.stream().map(Post::getId).toList()
+        );
 
-        return superHostExposureRepository
-                .findFirstByUser_IdAndStatusAndEndedAtAfterOrderByStartedAtDesc(userId, SuperHostExposureStatus.ACTIVE, now)
-                .map(exposure -> MySuperHostStatusResponse.of(
-                        unusedCount,
-                        true,
-                        exposure.getPost().getId(),
-                        exposure.getEndedAt()
-                ))
-                .orElseGet(() -> MySuperHostStatusResponse.of(unusedCount, false, null, null));
+        List<SuperHostManagePostResponse> appliedPosts = manageablePosts.stream()
+                .filter(post -> activeEndsAtByPostId.containsKey(post.getId()))
+                .map(post -> SuperHostManagePostResponse.from(post, activeEndsAtByPostId.get(post.getId())))
+                .sorted(Comparator.comparing(SuperHostManagePostResponse::superHostEndsAt))
+                .toList();
+        List<SuperHostManagePostResponse> availablePosts = manageablePosts.stream()
+                .filter(post -> !activeEndsAtByPostId.containsKey(post.getId()))
+                .map(post -> SuperHostManagePostResponse.from(post, null))
+                .toList();
+
+        return MySuperHostStatusResponse.of(unusedCount, appliedPosts, availablePosts);
     }
 
     @Transactional(readOnly = true)
@@ -136,7 +150,8 @@ public class SuperHostService {
                 .stream()
                 .collect(Collectors.toMap(
                         row -> (Long) row[0],
-                        row -> (LocalDateTime) row[1]
+                        row -> (LocalDateTime) row[1],
+                        (current, candidate) -> current.isAfter(candidate) ? current : candidate
                 ));
     }
 
@@ -163,20 +178,23 @@ public class SuperHostService {
         }
     }
 
-    private Post getApplicablePostOrThrow(Long postId, Long userId) {
-        return postRepository.findSuperHostApplicableByIdAndUserId(postId, userId, PostStatus.OPEN)
+    private Post getApplicablePostOrThrow(Long postId, Long userId, LocalDateTime now) {
+        return postRepository.findSuperHostApplicableByIdAndUserIdWithLock(
+                        postId,
+                        userId,
+                        PostStatus.OPEN,
+                        now.toLocalDate()
+                )
                 .orElseThrow(SuperHostPostNotApplicableException::new);
     }
 
-    private void validateNoActiveExposure(Long userId, LocalDateTime now) {
-        boolean hasActiveExposure = superHostExposureRepository.existsByUser_IdAndStatusAndEndedAtAfter(
-                userId,
+    private void endExpiredExposureByPostId(Long postId, LocalDateTime now) {
+        superHostExposureRepository.endExpiredExposureByPostId(
+                postId,
                 SuperHostExposureStatus.ACTIVE,
+                SuperHostExposureStatus.ENDED,
                 now
         );
-        if (hasActiveExposure) {
-            throw new SuperHostAlreadyActiveException();
-        }
     }
 
     private SuperHostTicket getUnusedTicketOrThrow(Long userId) {

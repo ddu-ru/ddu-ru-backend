@@ -3,7 +3,6 @@ package com.dduru.gildongmu.superhost.repository;
 import com.dduru.gildongmu.superhost.domain.SuperHostExposure;
 import com.dduru.gildongmu.superhost.domain.enums.SuperHostExposureStatus;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -13,22 +12,32 @@ import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 public interface SuperHostExposureRepository extends JpaRepository<SuperHostExposure, Long> {
-    boolean existsByUser_IdAndStatusAndEndedAtAfter(Long userId, SuperHostExposureStatus status, LocalDateTime now);
-
     boolean existsByPost_IdAndStatusAndEndedAtAfter(Long postId, SuperHostExposureStatus status, LocalDateTime now);
 
-    @Query("SELECT e.post.id, e.endedAt FROM SuperHostExposure e WHERE e.post.id IN :postIds AND e.status = :status AND e.endedAt > :now")
+    @Query("""
+            SELECT MAX(e.endedAt)
+            FROM SuperHostExposure e
+            WHERE e.post.id = :postId
+              AND e.status = :status
+              AND e.endedAt > :now
+            """)
+    Optional<LocalDateTime> findLatestActiveEndedAtByPostId(@Param("postId") Long postId,
+                                                            @Param("status") SuperHostExposureStatus status,
+                                                            @Param("now") LocalDateTime now);
+
+    @Query("""
+            SELECT e.post.id, MAX(e.endedAt)
+            FROM SuperHostExposure e
+            WHERE e.post.id IN :postIds
+              AND e.status = :status
+              AND e.endedAt > :now
+            GROUP BY e.post.id
+            """)
     List<Object[]> findActivePostIdsWithEndedAt(@Param("postIds") Collection<Long> postIds,
                                                 @Param("status") SuperHostExposureStatus status,
                                                 @Param("now") LocalDateTime now);
-
-    @EntityGraph(attributePaths = "post")
-    Optional<SuperHostExposure> findFirstByUser_IdAndStatusAndEndedAtAfterOrderByStartedAtDesc(
-            Long userId, SuperHostExposureStatus status, LocalDateTime now
-    );
 
     @Query("""
             SELECT e
@@ -41,6 +50,13 @@ public interface SuperHostExposureRepository extends JpaRepository<SuperHostExpo
               AND e.endedAt > :now
               AND p.isDeleted = false
               AND p.status = com.dduru.gildongmu.post.domain.enums.PostStatus.OPEN
+              AND e.id = (
+                  SELECT MAX(e2.id)
+                  FROM SuperHostExposure e2
+                  WHERE e2.post.id = e.post.id
+                    AND e2.status = :status
+                    AND e2.endedAt > :now
+              )
             ORDER BY e.startedAt DESC, p.likeCount DESC
             """)
     List<SuperHostExposure> findVisibleExposures(@Param("status") SuperHostExposureStatus status,
@@ -57,6 +73,19 @@ public interface SuperHostExposureRepository extends JpaRepository<SuperHostExpo
     int endExpiredExposures(@Param("activeStatus") SuperHostExposureStatus activeStatus,
                             @Param("endedStatus") SuperHostExposureStatus endedStatus,
                             @Param("now") LocalDateTime now);
+
+    @Modifying
+    @Query("""
+            UPDATE SuperHostExposure e
+            SET e.status = :endedStatus
+            WHERE e.post.id = :postId
+              AND e.status = :activeStatus
+              AND e.endedAt <= :now
+            """)
+    int endExpiredExposureByPostId(@Param("postId") Long postId,
+                                   @Param("activeStatus") SuperHostExposureStatus activeStatus,
+                                   @Param("endedStatus") SuperHostExposureStatus endedStatus,
+                                   @Param("now") LocalDateTime now);
 
     @Modifying(clearAutomatically = true)
     @Query("""
