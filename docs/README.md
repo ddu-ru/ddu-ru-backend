@@ -18,6 +18,7 @@
 | 공통 응답/예외/JWT | [공통 기반 사용 가이드](./005-architecture/002-common-foundation.md) |
 | 로컬 실행/Docker | [Docker 운영 가이드](./006-operations/001-docker.md) |
 | 배포/Blue-Green | [배포 파이프라인](./006-operations/004-deployment.md) |
+| Android 통합 QA 데이터 | [Android QA 테스트 데이터](./006-operations/005-android-qa-test-data.md) |
 | PR/커밋/브랜치 | [팀 협업 컨벤션](./007-conventions/001-team.md) |
 | Swagger API 명세 작성 | [Swagger API 명세 작성 가이드](./007-conventions/005-swagger-api-docs.md) |
 | 날짜/시간 기준 | [날짜/시간 사용 기준](./007-conventions/006-time-provider.md) |
@@ -63,7 +64,8 @@ docs/
 │   ├── 001-docker.md
 │   ├── 002-flyway.md
 │   ├── 003-infrastructure.md
-│   └── 004-deployment.md
+│   ├── 004-deployment.md
+│   └── 005-android-qa-test-data.md
 ├── 007-conventions/
 │   ├── 001-team.md
 │   ├── 002-faq.md
@@ -138,6 +140,7 @@ AI와 개발자가 기능 구현 시 참고할 내부 구현 세부를 정리합
 - [Flyway 가이드](./006-operations/002-flyway.md)
 - [인프라 명세](./006-operations/003-infrastructure.md)
 - [배포 파이프라인](./006-operations/004-deployment.md)
+- [Android QA 테스트 데이터](./006-operations/005-android-qa-test-data.md)
 
 ### 007-conventions - 협업 규칙
 
