@@ -91,6 +91,32 @@ INSERT INTO qa350_guard (guard_name, valid_value)
 SELECT 'virtual-users-ready', IF(COUNT(*) = 27, 1, 0)
 FROM qa350_users;
 
+INSERT INTO qa350_guard (guard_name, valid_value)
+SELECT 'profile-assets-ready', IF(
+    (SELECT COUNT(DISTINCT avatar_type)
+     FROM avatar_profiles
+     WHERE avatar_type IN (
+         'TTUR_POGUN','TTUR_POSEUL','TTUR_TTORANG','TTUR_DASOM',
+         'TTUR_MUDI','TTUR_SODAM','TTUR_SWEET','TTUR_BANJJAK',
+         'TTUR_SPARK','TTUR_LUNA','TTUR_GLIM','TTUR_HARAM',
+         'TTUR_MALLANG','TTUR_BONGBONG','TTUR_BEOMI','TTUR_MARU'
+     )) = 16
+    AND (SELECT COUNT(DISTINCT display_order)
+         FROM bg_colors
+         WHERE display_order BETWEEN 1 AND 15) = 15,
+    1,
+    0
+);
+
+INSERT INTO qa350_guard (guard_name, valid_value)
+SELECT 'qa-phone-numbers-available', IF(COUNT(*) = 0, 1, 0)
+FROM profiles p
+JOIN qa350_numbers n
+  ON n.n <= 27
+ AND p.phone_number = CONCAT('010000', LPAD(n.n, 5, '0'))
+LEFT JOIN qa350_users qu ON qu.user_id = p.user_id
+WHERE qu.user_id IS NULL;
+
 INSERT INTO profiles (
     user_id, nickname, gender, birthday, profile_image_type, bio,
     avatar_id, bg_color_id, uploaded_image_url, phone_number, created_at, modified_at
@@ -114,18 +140,26 @@ SELECT
                 + (qu.seq - 8) * 2)), CAST(@qa_today AS DATE))
         ELSE DATE_SUB(CAST(@qa_today AS DATE), INTERVAL (21 + MOD(qu.seq - 10, 19)) YEAR)
     END,
-    'DEFAULT', '안드로이드 QA 통합 테스트용 가상 사용자입니다.',
-    NULL, NULL, NULL, NULL, @qa_now, @qa_now
+    'AVATAR', '안드로이드 QA 통합 테스트용 가상 사용자입니다.',
+    ap.id, bc.id, NULL, CONCAT('010000', LPAD(qu.seq, 5, '0')), @qa_now, @qa_now
 FROM qa350_users qu
+JOIN avatar_profiles ap
+  ON ap.avatar_type = ELT(1 + MOD(qu.seq - 1, 16),
+      'TTUR_POGUN','TTUR_POSEUL','TTUR_TTORANG','TTUR_DASOM',
+      'TTUR_MUDI','TTUR_SODAM','TTUR_SWEET','TTUR_BANJJAK',
+      'TTUR_SPARK','TTUR_LUNA','TTUR_GLIM','TTUR_HARAM',
+      'TTUR_MALLANG','TTUR_BONGBONG','TTUR_BEOMI','TTUR_MARU')
+JOIN bg_colors bc ON bc.display_order = 1 + MOD(qu.seq - 1, 15)
 ON DUPLICATE KEY UPDATE
     nickname = VALUES(nickname),
     gender = VALUES(gender),
     birthday = VALUES(birthday),
     profile_image_type = VALUES(profile_image_type),
     bio = VALUES(bio),
-    avatar_id = NULL,
-    bg_color_id = NULL,
+    avatar_id = VALUES(avatar_id),
+    bg_color_id = VALUES(bg_color_id),
     uploaded_image_url = NULL,
+    phone_number = VALUES(phone_number),
     modified_at = VALUES(modified_at);
 
 INSERT INTO qa350_guard (guard_name, valid_value)
@@ -133,6 +167,11 @@ SELECT 'virtual-profiles-ready', IF(
     COUNT(*) = 27
     AND SUM(p.gender = 'F') = 14
     AND SUM(p.gender = 'M') = 13
+    AND SUM(p.phone_number IS NOT NULL) = 27
+    AND COUNT(DISTINCT p.phone_number) = 27
+    AND SUM(p.profile_image_type = 'AVATAR') = 27
+    AND SUM(p.avatar_id IS NOT NULL) = 27
+    AND SUM(p.bg_color_id IS NOT NULL) = 27
     AND MIN(TIMESTAMPDIFF(YEAR, p.birthday, CAST(@qa_today AS DATE))) >= 21
     AND MAX(TIMESTAMPDIFF(YEAR, p.birthday, CAST(@qa_today AS DATE))) <= 39,
     1,
@@ -202,6 +241,20 @@ ON DUPLICATE KEY UPDATE
     consumption_score = VALUES(consumption_score),
     decision_score = VALUES(decision_score),
     modified_at = VALUES(modified_at);
+
+INSERT INTO qa350_guard (guard_name, valid_value)
+SELECT 'profile-avatar-consistent', IF(
+    COUNT(*) = 27
+    AND SUM(p.profile_image_type = 'AVATAR') = 27
+    AND SUM(p.avatar_id IS NOT NULL AND p.bg_color_id IS NOT NULL) = 27
+    AND SUM(ap.avatar_type = tt.avatar_type) = 27,
+    1,
+    0
+)
+FROM qa350_users qu
+JOIN profiles p ON p.user_id = qu.user_id
+JOIN travel_tendencies tt ON tt.user_id = qu.user_id
+JOIN avatar_profiles ap ON ap.id = p.avatar_id;
 
 INSERT INTO survey_activity_tags (survey_id, tag)
 SELECT s.id, IF(MOD(qu.seq, 2) = 0, 'FOOD', 'SIGHTSEEING')
@@ -924,6 +977,16 @@ COMMIT;
 -- Execution summary.
 SELECT 'virtual_users' AS metric, COUNT(*) AS value
 FROM users WHERE email LIKE 'qa350-user-%@dduru.test'
+UNION ALL
+SELECT 'complete_virtual_profiles', COUNT(*)
+FROM users u
+JOIN profiles p ON p.user_id = u.id
+JOIN travel_tendencies tt ON tt.user_id = u.id
+JOIN avatar_profiles ap ON ap.id = p.avatar_id AND ap.avatar_type = tt.avatar_type
+WHERE u.email LIKE 'qa350-user-%@dduru.test'
+  AND p.phone_number IS NOT NULL
+  AND p.profile_image_type = 'AVATAR'
+  AND p.bg_color_id IS NOT NULL
 UNION ALL
 SELECT 'qa_posts', COUNT(*) FROM posts WHERE JSON_CONTAINS(tags, JSON_QUOTE('QA350'))
 UNION ALL
