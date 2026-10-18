@@ -8,6 +8,7 @@
 | [Flyway 가이드](./002-flyway.md) | 운영 DB 마이그레이션 적용 방식 |
 | [인프라 명세](./003-infrastructure.md) | MySQL/RDS, Redis, S3, CoolSMS, ECR, EC2, Nginx 구성 |
 | [배포 파이프라인](./004-deployment.md) | GitHub Actions, ECR 이미지, EC2 blue-green 배포 |
+| [Android QA 테스트 데이터](./005-android-qa-test-data.md) | #350 QA 시드·정리 SQL 실행과 앱 검증 절차 |
 
 > `deployment/` 폴더는 Nginx 운영 설정 파일을 담고, `docs/006-operations/`는 그 설정을 설명합니다.
 
