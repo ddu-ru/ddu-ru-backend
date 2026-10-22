@@ -37,6 +37,8 @@ docs/
 ├── 001-policy/
 │   ├── 001-home-mate-recommendation-policy.md
 │   ├── 002-home-recommendation-eligibility.md
+│   ├── 003-home-popular-destinations.md
+│   ├── 004-super-host-policy.md
 │   └── flows/
 ├── 002-design/
 │   ├── 001-domain.md
@@ -94,6 +96,8 @@ docs/
 
 - [홈 메이트 추천 정책](./001-policy/001-home-mate-recommendation-policy.md)
 - [홈 여행방 추천 공통 노출 조건](./001-policy/002-home-recommendation-eligibility.md)
+- [홈 인기 여행지 정책](./001-policy/003-home-popular-destinations.md)
+- [슈퍼호스트 정책](./001-policy/004-super-host-policy.md)
 - [제품/기능 흐름](./001-policy/flows/)
 
 ### 002-design - 설계
