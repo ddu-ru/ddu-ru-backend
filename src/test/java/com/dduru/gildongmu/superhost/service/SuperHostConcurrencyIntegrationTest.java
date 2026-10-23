@@ -138,6 +138,44 @@ class SuperHostConcurrencyIntegrationTest {
         assertThat(ticketRepository.countByUser_IdAndStatus(user.getId(), SuperHostTicketStatus.UNUSED)).isZero();
     }
 
+    @Test
+    @DisplayName("온보딩 보상 지급 요청이 동시에 실행돼도 티켓은 3장만 지급된다")
+    void concurrentOnboardingRewardsIssueThreeTicketsOnlyOnce() throws Exception {
+        int requestCount = 2;
+        var ready = new CountDownLatch(requestCount);
+        var start = new CountDownLatch(1);
+        var executor = Executors.newFixedThreadPool(requestCount);
+
+        try {
+            var futures = java.util.stream.IntStream.range(0, requestCount)
+                    .mapToObj(ignored -> executor.submit(() -> {
+                        ready.countDown();
+                        if (!start.await(5, TimeUnit.SECONDS)) {
+                            throw new IllegalStateException("동시 실행 시작 대기 시간 초과");
+                        }
+                        service.grantOnboardingRewardTicket(user.getId());
+                        return "SUCCESS";
+                    }))
+                    .toList();
+
+            assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+            for (var future : futures) {
+                assertThat(future.get(10, TimeUnit.SECONDS)).isEqualTo("SUCCESS");
+            }
+        } finally {
+            executor.shutdownNow();
+        }
+
+        assertThat(ticketRepository.countByUser_IdAndStatus(user.getId(), SuperHostTicketStatus.UNUSED))
+                .isEqualTo(3);
+        assertThat(ticketRepository.findAll())
+                .allSatisfy(ticket -> {
+                    assertThat(ticket.getSource()).isEqualTo(SuperHostTicketSource.ONBOARDING_SURVEY);
+                    assertThat(ticket.getBoostDurationDays()).isEqualTo(3);
+                });
+    }
+
     private List<String> executeConcurrently(List<Long> postIds) throws Exception {
         int requestCount = postIds.size();
         var ready = new CountDownLatch(requestCount);

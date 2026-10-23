@@ -1,5 +1,6 @@
 package com.dduru.gildongmu.superhost.service;
 
+import com.dduru.gildongmu.auth.exception.UserNotFoundException;
 import com.dduru.gildongmu.common.time.TimeProvider;
 import com.dduru.gildongmu.post.domain.Post;
 import com.dduru.gildongmu.post.domain.enums.PostStatus;
@@ -22,8 +23,6 @@ import com.dduru.gildongmu.user.domain.User;
 import com.dduru.gildongmu.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,12 +33,14 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
 public class SuperHostService {
+    private static final int ONBOARDING_TICKET_COUNT = 3;
     private static final int ONBOARDING_TICKET_BOOST_DAYS = 3;
     private static final int DEFAULT_LIST_SIZE = 10;
     private static final int MAX_LIST_SIZE = 20;
@@ -51,19 +52,22 @@ public class SuperHostService {
     private final TimeProvider timeProvider;
 
     public void grantOnboardingRewardTicket(Long userId) {
-        User user = userRepository.getByIdOrThrow(userId);
-        SuperHostTicket ticket = SuperHostTicket.create(user, SuperHostTicketSource.ONBOARDING_SURVEY, ONBOARDING_TICKET_BOOST_DAYS);
-
-        try {
-            superHostTicketRepository.save(ticket);
-            log.info("온보딩 보상 슈퍼호스트 티켓 지급 - userId={}", userId);
-        } catch (DataIntegrityViolationException e) {
-            if (isDuplicateOnboardingRewardViolation(e)) {
-                log.info("온보딩 보상 슈퍼호스트 티켓이 이미 존재(동시 요청) - userId={}", userId);
-                return;
-            }
-            throw e;
+        User user = userRepository.findByIdWithLock(userId)
+                .orElseThrow(UserNotFoundException::new);
+        if (superHostTicketRepository.existsByUser_IdAndSource(userId, SuperHostTicketSource.ONBOARDING_SURVEY)) {
+            log.info("온보딩 보상 슈퍼호스트 티켓이 이미 지급됨 - userId={}", userId);
+            return;
         }
+
+        List<SuperHostTicket> tickets = IntStream.range(0, ONBOARDING_TICKET_COUNT)
+                .mapToObj(ignored -> SuperHostTicket.create(
+                        user,
+                        SuperHostTicketSource.ONBOARDING_SURVEY,
+                        ONBOARDING_TICKET_BOOST_DAYS
+                ))
+                .toList();
+        superHostTicketRepository.saveAll(tickets);
+        log.info("온보딩 보상 슈퍼호스트 티켓 지급 - userId={}, count={}", userId, tickets.size());
     }
 
     public SuperHostApplyResponse applyTicketToPost(Long userId, Long postId) {
@@ -221,15 +225,4 @@ public class SuperHostService {
         return Math.min(size, MAX_LIST_SIZE);
     }
 
-    private static final String UK_SUPER_HOST_TICKETS_USER_SOURCE = "uk_super_host_tickets_user_source";
-
-    private boolean isDuplicateOnboardingRewardViolation(DataIntegrityViolationException e) {
-        for (Throwable t = e; t != null; t = t.getCause()) {
-            if (t instanceof DuplicateKeyException) {
-                String message = t.getMessage();
-                return message != null && message.contains(UK_SUPER_HOST_TICKETS_USER_SOURCE);
-            }
-        }
-        return false;
-    }
 }

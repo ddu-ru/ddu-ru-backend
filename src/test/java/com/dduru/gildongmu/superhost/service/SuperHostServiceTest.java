@@ -32,8 +32,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -43,11 +41,11 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -82,56 +80,42 @@ class SuperHostServiceTest {
     class GrantOnboardingRewardTicket {
 
         @Test
-        @DisplayName("사용자당 1회만 지급된다")
-        void issuesOnlyOnce() {
+        @DisplayName("사용자당 온보딩 티켓 3장을 한 번만 지급한다")
+        @SuppressWarnings("unchecked")
+        void issuesThreeTicketsOnce() {
             Long userId = 1L;
             User user = createUser(userId);
 
-            when(userRepository.getByIdOrThrow(userId)).thenReturn(user);
+            when(userRepository.findByIdWithLock(userId)).thenReturn(Optional.of(user));
+            when(superHostTicketRepository.existsByUser_IdAndSource(
+                    userId, SuperHostTicketSource.ONBOARDING_SURVEY)).thenReturn(false);
 
             superHostService.grantOnboardingRewardTicket(userId);
 
-            ArgumentCaptor<SuperHostTicket> ticketCaptor = ArgumentCaptor.forClass(SuperHostTicket.class);
-            verify(superHostTicketRepository).save(ticketCaptor.capture());
-            assertThat(ticketCaptor.getValue().getSource()).isEqualTo(SuperHostTicketSource.ONBOARDING_SURVEY);
-            assertThat(ticketCaptor.getValue().getStatus()).isEqualTo(SuperHostTicketStatus.UNUSED);
+            ArgumentCaptor<List<SuperHostTicket>> ticketCaptor = ArgumentCaptor.forClass(List.class);
+            verify(superHostTicketRepository).saveAll(ticketCaptor.capture());
+            assertThat(ticketCaptor.getValue())
+                    .hasSize(3)
+                    .allSatisfy(ticket -> {
+                        assertThat(ticket.getSource()).isEqualTo(SuperHostTicketSource.ONBOARDING_SURVEY);
+                        assertThat(ticket.getStatus()).isEqualTo(SuperHostTicketStatus.UNUSED);
+                        assertThat(ticket.getBoostDurationDays()).isEqualTo(3);
+                    });
         }
 
         @Test
-        @DisplayName("이미 있으면 예외 없이 종료한다")
-        void ignoresDuplicateInsert() {
+        @DisplayName("온보딩 티켓이 이미 지급됐으면 추가 지급하지 않는다")
+        void ignoresAlreadyGrantedReward() {
             Long userId = 1L;
             User user = createUser(userId);
-            DataIntegrityViolationException exception = new DataIntegrityViolationException(
-                    "duplicate",
-                    new DuplicateKeyException("Duplicate entry for key 'uk_super_host_tickets_user_source'")
-            );
 
-            when(userRepository.getByIdOrThrow(userId)).thenReturn(user);
-            when(superHostTicketRepository.save(any(SuperHostTicket.class))).thenThrow(exception);
+            when(userRepository.findByIdWithLock(userId)).thenReturn(Optional.of(user));
+            when(superHostTicketRepository.existsByUser_IdAndSource(
+                    userId, SuperHostTicketSource.ONBOARDING_SURVEY)).thenReturn(true);
 
-            assertThatCode(() -> superHostService.grantOnboardingRewardTicket(userId))
-                    .doesNotThrowAnyException();
+            superHostService.grantOnboardingRewardTicket(userId);
 
-            verify(userRepository).getByIdOrThrow(userId);
-            verify(superHostTicketRepository).save(any(SuperHostTicket.class));
-        }
-
-        @Test
-        @DisplayName("다른 unique key 충돌이면 그대로 예외를 다시 던진다")
-        void rethrowsUnrecognizedDuplicateKey() {
-            Long userId = 1L;
-            User user = createUser(userId);
-            DataIntegrityViolationException exception = new DataIntegrityViolationException(
-                    "duplicate",
-                    new DuplicateKeyException("some_other_unique_key")
-            );
-
-            when(userRepository.getByIdOrThrow(userId)).thenReturn(user);
-            when(superHostTicketRepository.save(any(SuperHostTicket.class))).thenThrow(exception);
-
-            assertThatThrownBy(() -> superHostService.grantOnboardingRewardTicket(userId))
-                    .isSameAs(exception);
+            verify(superHostTicketRepository, never()).saveAll(any());
         }
     }
 
