@@ -4,7 +4,6 @@ import com.dduru.gildongmu.auth.exception.UserNotFoundException;
 import com.dduru.gildongmu.common.time.TimeProvider;
 import com.dduru.gildongmu.post.domain.Post;
 import com.dduru.gildongmu.post.domain.enums.PostStatus;
-import com.dduru.gildongmu.post.dto.response.PostSummaryResponse;
 import com.dduru.gildongmu.post.repository.PostRepository;
 import com.dduru.gildongmu.superhost.domain.SuperHostExposure;
 import com.dduru.gildongmu.superhost.domain.SuperHostTicket;
@@ -14,7 +13,6 @@ import com.dduru.gildongmu.superhost.domain.enums.SuperHostTicketStatus;
 import com.dduru.gildongmu.superhost.dto.response.MySuperHostStatusResponse;
 import com.dduru.gildongmu.superhost.dto.response.SuperHostApplyResponse;
 import com.dduru.gildongmu.superhost.dto.response.SuperHostManagePostResponse;
-import com.dduru.gildongmu.superhost.dto.response.SuperHostPostListResponse;
 import com.dduru.gildongmu.superhost.exception.SuperHostPostNotApplicableException;
 import com.dduru.gildongmu.superhost.exception.SuperHostTicketNotFoundException;
 import com.dduru.gildongmu.superhost.repository.SuperHostExposureRepository;
@@ -23,7 +21,6 @@ import com.dduru.gildongmu.user.domain.User;
 import com.dduru.gildongmu.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,8 +39,6 @@ import java.util.stream.IntStream;
 public class SuperHostService {
     private static final int ONBOARDING_TICKET_COUNT = 3;
     private static final int ONBOARDING_TICKET_BOOST_DAYS = 3;
-    private static final int DEFAULT_LIST_SIZE = 10;
-    private static final int MAX_LIST_SIZE = 20;
 
     private final UserRepository userRepository;
     private final PostRepository postRepository;
@@ -87,22 +82,6 @@ public class SuperHostService {
 
         int unusedTicketCount = getUnusedTicketCount(userId);
         return SuperHostApplyResponse.of(postId, ticket.getId(), now, endsAt, unusedTicketCount);
-    }
-
-    @Transactional(readOnly = true)
-    public SuperHostPostListResponse retrieveSuperHostPosts(Integer size) {
-        int requestSize = normalizeRequestSize(size);
-        LocalDateTime now = timeProvider.now();
-        List<PostSummaryResponse> responses = superHostExposureRepository
-                .findVisibleExposures(SuperHostExposureStatus.ACTIVE, now, PageRequest.of(0, requestSize))
-                .stream()
-                .map(exposure -> PostSummaryResponse.from(
-                        exposure.getPost(),
-                        true,
-                        false))
-                .toList();
-
-        return SuperHostPostListResponse.of(responses);
     }
 
     public int endExpiredExposures() {
@@ -216,13 +195,6 @@ public class SuperHostService {
         return Math.toIntExact(
                 superHostTicketRepository.countByUser_IdAndStatus(userId, SuperHostTicketStatus.UNUSED)
         );
-    }
-
-    private int normalizeRequestSize(Integer size) {
-        if (size == null || size < 1) {
-            return DEFAULT_LIST_SIZE;
-        }
-        return Math.min(size, MAX_LIST_SIZE);
     }
 
 }

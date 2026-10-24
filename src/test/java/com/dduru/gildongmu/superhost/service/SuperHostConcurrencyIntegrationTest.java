@@ -26,7 +26,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -106,14 +105,6 @@ class SuperHostConcurrencyIntegrationTest {
         assertThat(ticketRepository.countByUser_IdAndStatus(user.getId(), SuperHostTicketStatus.USED)).isEqualTo(2);
         assertThat(ticketRepository.countByUser_IdAndStatus(user.getId(), SuperHostTicketStatus.UNUSED)).isZero();
 
-        assertThat(exposureRepository.findVisibleExposures(
-                SuperHostExposureStatus.ACTIVE,
-                NOW,
-                PageRequest.of(0, 10)
-        ))
-                .singleElement()
-                .extracting(exposure -> exposure.getPost().getId())
-                .isEqualTo(post.getId());
         assertThat(service.getMyStatus(user.getId()).appliedPosts())
                 .singleElement()
                 .satisfies(item -> {

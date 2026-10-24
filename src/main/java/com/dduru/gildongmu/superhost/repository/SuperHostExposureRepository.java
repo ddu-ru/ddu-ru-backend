@@ -2,7 +2,6 @@ package com.dduru.gildongmu.superhost.repository;
 
 import com.dduru.gildongmu.superhost.domain.SuperHostExposure;
 import com.dduru.gildongmu.superhost.domain.enums.SuperHostExposureStatus;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -38,30 +37,6 @@ public interface SuperHostExposureRepository extends JpaRepository<SuperHostExpo
     List<Object[]> findActivePostIdsWithEndedAt(@Param("postIds") Collection<Long> postIds,
                                                 @Param("status") SuperHostExposureStatus status,
                                                 @Param("now") LocalDateTime now);
-
-    @Query("""
-            SELECT e
-            FROM SuperHostExposure e
-            JOIN FETCH e.post p
-            JOIN FETCH p.destination
-            JOIN FETCH p.user u
-            LEFT JOIN FETCH u.profile
-            WHERE e.status = :status
-              AND e.endedAt > :now
-              AND p.isDeleted = false
-              AND p.status = com.dduru.gildongmu.post.domain.enums.PostStatus.OPEN
-              AND e.id = (
-                  SELECT MAX(e2.id)
-                  FROM SuperHostExposure e2
-                  WHERE e2.post.id = e.post.id
-                    AND e2.status = :status
-                    AND e2.endedAt > :now
-              )
-            ORDER BY e.startedAt DESC, p.likeCount DESC
-            """)
-    List<SuperHostExposure> findVisibleExposures(@Param("status") SuperHostExposureStatus status,
-                                                 @Param("now") LocalDateTime now,
-                                                 Pageable pageable);
 
     @Modifying(clearAutomatically = true)
     @Query("""

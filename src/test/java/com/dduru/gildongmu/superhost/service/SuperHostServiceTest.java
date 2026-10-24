@@ -16,7 +16,6 @@ import com.dduru.gildongmu.superhost.domain.enums.SuperHostTicketSource;
 import com.dduru.gildongmu.superhost.domain.enums.SuperHostTicketStatus;
 import com.dduru.gildongmu.superhost.dto.response.MySuperHostStatusResponse;
 import com.dduru.gildongmu.superhost.dto.response.SuperHostApplyResponse;
-import com.dduru.gildongmu.superhost.dto.response.SuperHostPostListResponse;
 import com.dduru.gildongmu.superhost.exception.SuperHostPostNotApplicableException;
 import com.dduru.gildongmu.superhost.repository.SuperHostExposureRepository;
 import com.dduru.gildongmu.superhost.repository.SuperHostTicketRepository;
@@ -32,7 +31,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
@@ -196,24 +194,6 @@ class SuperHostServiceTest {
     @Nested
     @DisplayName("슈퍼호스트 조회")
     class Query {
-
-        @Test
-        @DisplayName("슈퍼호스트 목록은 ACTIVE 노출로 구성된다")
-        void retrieveSuperHostPostsReturnsActiveList() {
-            User user = createUser(1L);
-            Post post = createPost(10L, user);
-            SuperHostTicket ticket = SuperHostTicket.create(user, SuperHostTicketSource.ONBOARDING_SURVEY, 3);
-            LocalDateTime endsAt = NOW.plusDays(3);
-            SuperHostExposure exposure = SuperHostExposure.create(ticket, user, post, NOW, endsAt);
-
-            when(superHostExposureRepository.findVisibleExposures(any(), any(), any(Pageable.class))).thenReturn(List.of(exposure));
-
-            SuperHostPostListResponse response = superHostService.retrieveSuperHostPosts(5);
-
-            assertThat(response.items()).hasSize(1);
-            assertThat(response.items().get(0).id()).isEqualTo(10L);
-            assertThat(response.items().get(0).author().isSuperHost()).isTrue();
-        }
 
         @Test
         @DisplayName("만료 노출 종료 처리는 ACTIVE -> ENDED 갱신 수를 반환한다")
