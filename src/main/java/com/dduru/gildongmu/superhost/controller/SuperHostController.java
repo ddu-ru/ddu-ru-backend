@@ -4,7 +4,6 @@ import com.dduru.gildongmu.common.annotation.CurrentUser;
 import com.dduru.gildongmu.common.dto.ApiResult;
 import com.dduru.gildongmu.superhost.dto.response.MySuperHostStatusResponse;
 import com.dduru.gildongmu.superhost.dto.response.SuperHostApplyResponse;
-import com.dduru.gildongmu.superhost.dto.response.SuperHostPostListResponse;
 import com.dduru.gildongmu.superhost.service.SuperHostService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -12,7 +11,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -20,15 +18,6 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/posts")
 public class SuperHostController implements SuperHostApiDocs {
     private final SuperHostService superHostService;
-
-    @Override
-    @GetMapping("/super-hosts")
-    public ResponseEntity<ApiResult<SuperHostPostListResponse>> retrieveSuperHostPosts(
-            @RequestParam(required = false) Integer size
-    ) {
-        SuperHostPostListResponse response = superHostService.retrieveSuperHostPosts(size);
-        return ResponseEntity.ok(ApiResult.ok(response));
-    }
 
     @Override
     @GetMapping("/super-hosts/me")

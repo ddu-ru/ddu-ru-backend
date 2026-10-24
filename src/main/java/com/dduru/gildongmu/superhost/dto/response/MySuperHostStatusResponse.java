@@ -1,19 +1,21 @@
 package com.dduru.gildongmu.superhost.dto.response;
 
-import java.time.LocalDateTime;
+import java.util.List;
 
 public record MySuperHostStatusResponse(
         int unusedTicketCount,
-        boolean hasActive,
-        Long activePostId,
-        LocalDateTime activeEndsAt
+        List<SuperHostManagePostResponse> appliedPosts,
+        List<SuperHostManagePostResponse> availablePosts
 ) {
     public static MySuperHostStatusResponse of(
             int unusedTicketCount,
-            boolean hasActive,
-            Long activePostId,
-            LocalDateTime activeEndsAt
+            List<SuperHostManagePostResponse> appliedPosts,
+            List<SuperHostManagePostResponse> availablePosts
     ) {
-        return new MySuperHostStatusResponse(unusedTicketCount, hasActive, activePostId, activeEndsAt);
+        return new MySuperHostStatusResponse(
+                unusedTicketCount,
+                List.copyOf(appliedPosts),
+                List.copyOf(availablePosts)
+        );
     }
 }

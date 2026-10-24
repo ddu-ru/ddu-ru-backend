@@ -5,7 +5,6 @@ import com.dduru.gildongmu.common.dto.ApiResult;
 import com.dduru.gildongmu.common.exception.ErrorCode;
 import com.dduru.gildongmu.superhost.dto.response.MySuperHostStatusResponse;
 import com.dduru.gildongmu.superhost.dto.response.SuperHostApplyResponse;
-import com.dduru.gildongmu.superhost.dto.response.SuperHostPostListResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -17,16 +16,7 @@ import org.springframework.http.ResponseEntity;
 @SecurityRequirement(name = "JWT")
 public interface SuperHostApiDocs {
 
-    @Operation(summary = "슈퍼호스트 게시글 목록 조회", description = "메인 상단에 노출할 슈퍼호스트 게시글 목록을 조회합니다.")
-    @ApiResponse(responseCode = "200", description = "조회 성공")
-    @ApiErrorResponses({
-            ErrorCode.UNAUTHORIZED
-    })
-    ResponseEntity<ApiResult<SuperHostPostListResponse>> retrieveSuperHostPosts(
-            @Parameter(description = "최대 조회 개수(기본 10)") Integer size
-    );
-
-    @Operation(summary = "내 슈퍼호스트 현황 조회", description = "보유 티켓 수, 현재 활성 게시글, 종료 시각을 조회합니다.")
+    @Operation(summary = "내 슈퍼호스트 관리 조회", description = "보유 티켓 수와 적용 중·미적용 게시글 목록을 조회합니다.")
     @ApiResponse(responseCode = "200", description = "조회 성공")
     @ApiErrorResponses({
             ErrorCode.UNAUTHORIZED
@@ -35,11 +25,10 @@ public interface SuperHostApiDocs {
             @Parameter(hidden = true) Long userId
     );
 
-    @Operation(summary = "슈퍼호스트 티켓 적용", description = "보유한 슈퍼호스트 티켓 1개를 게시글에 적용합니다.")
+    @Operation(summary = "슈퍼호스트 티켓 적용 또는 연장", description = "보유한 티켓 1개를 게시글에 적용하거나 적용 중인 게시글의 노출 기간을 연장합니다.")
     @ApiResponse(responseCode = "200", description = "적용 성공")
     @ApiErrorResponses({
             ErrorCode.SUPER_HOST_TICKET_NOT_FOUND,
-            ErrorCode.SUPER_HOST_ALREADY_ACTIVE,
             ErrorCode.SUPER_HOST_POST_NOT_APPLICABLE,
             ErrorCode.UNAUTHORIZED
     })

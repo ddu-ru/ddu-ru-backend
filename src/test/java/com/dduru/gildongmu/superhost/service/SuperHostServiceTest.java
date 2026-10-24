@@ -16,8 +16,6 @@ import com.dduru.gildongmu.superhost.domain.enums.SuperHostTicketSource;
 import com.dduru.gildongmu.superhost.domain.enums.SuperHostTicketStatus;
 import com.dduru.gildongmu.superhost.dto.response.MySuperHostStatusResponse;
 import com.dduru.gildongmu.superhost.dto.response.SuperHostApplyResponse;
-import com.dduru.gildongmu.superhost.dto.response.SuperHostPostListResponse;
-import com.dduru.gildongmu.superhost.exception.SuperHostAlreadyActiveException;
 import com.dduru.gildongmu.superhost.exception.SuperHostPostNotApplicableException;
 import com.dduru.gildongmu.superhost.repository.SuperHostExposureRepository;
 import com.dduru.gildongmu.superhost.repository.SuperHostTicketRepository;
@@ -33,9 +31,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.dao.DuplicateKeyException;
-import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
@@ -44,11 +39,11 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -83,56 +78,42 @@ class SuperHostServiceTest {
     class GrantOnboardingRewardTicket {
 
         @Test
-        @DisplayName("사용자당 1회만 지급된다")
-        void issuesOnlyOnce() {
+        @DisplayName("사용자당 온보딩 티켓 3장을 한 번만 지급한다")
+        @SuppressWarnings("unchecked")
+        void issuesThreeTicketsOnce() {
             Long userId = 1L;
             User user = createUser(userId);
 
-            when(userRepository.getByIdOrThrow(userId)).thenReturn(user);
+            when(userRepository.findByIdWithLock(userId)).thenReturn(Optional.of(user));
+            when(superHostTicketRepository.existsByUser_IdAndSource(
+                    userId, SuperHostTicketSource.ONBOARDING_SURVEY)).thenReturn(false);
 
             superHostService.grantOnboardingRewardTicket(userId);
 
-            ArgumentCaptor<SuperHostTicket> ticketCaptor = ArgumentCaptor.forClass(SuperHostTicket.class);
-            verify(superHostTicketRepository).save(ticketCaptor.capture());
-            assertThat(ticketCaptor.getValue().getSource()).isEqualTo(SuperHostTicketSource.ONBOARDING_SURVEY);
-            assertThat(ticketCaptor.getValue().getStatus()).isEqualTo(SuperHostTicketStatus.UNUSED);
+            ArgumentCaptor<List<SuperHostTicket>> ticketCaptor = ArgumentCaptor.forClass(List.class);
+            verify(superHostTicketRepository).saveAll(ticketCaptor.capture());
+            assertThat(ticketCaptor.getValue())
+                    .hasSize(3)
+                    .allSatisfy(ticket -> {
+                        assertThat(ticket.getSource()).isEqualTo(SuperHostTicketSource.ONBOARDING_SURVEY);
+                        assertThat(ticket.getStatus()).isEqualTo(SuperHostTicketStatus.UNUSED);
+                        assertThat(ticket.getBoostDurationDays()).isEqualTo(3);
+                    });
         }
 
         @Test
-        @DisplayName("이미 있으면 예외 없이 종료한다")
-        void ignoresDuplicateInsert() {
+        @DisplayName("온보딩 티켓이 이미 지급됐으면 추가 지급하지 않는다")
+        void ignoresAlreadyGrantedReward() {
             Long userId = 1L;
             User user = createUser(userId);
-            DataIntegrityViolationException exception = new DataIntegrityViolationException(
-                    "duplicate",
-                    new DuplicateKeyException("Duplicate entry for key 'uk_super_host_tickets_user_source'")
-            );
 
-            when(userRepository.getByIdOrThrow(userId)).thenReturn(user);
-            when(superHostTicketRepository.save(any(SuperHostTicket.class))).thenThrow(exception);
+            when(userRepository.findByIdWithLock(userId)).thenReturn(Optional.of(user));
+            when(superHostTicketRepository.existsByUser_IdAndSource(
+                    userId, SuperHostTicketSource.ONBOARDING_SURVEY)).thenReturn(true);
 
-            assertThatCode(() -> superHostService.grantOnboardingRewardTicket(userId))
-                    .doesNotThrowAnyException();
+            superHostService.grantOnboardingRewardTicket(userId);
 
-            verify(userRepository).getByIdOrThrow(userId);
-            verify(superHostTicketRepository).save(any(SuperHostTicket.class));
-        }
-
-        @Test
-        @DisplayName("다른 unique key 충돌이면 그대로 예외를 다시 던진다")
-        void rethrowsUnrecognizedDuplicateKey() {
-            Long userId = 1L;
-            User user = createUser(userId);
-            DataIntegrityViolationException exception = new DataIntegrityViolationException(
-                    "duplicate",
-                    new DuplicateKeyException("some_other_unique_key")
-            );
-
-            when(userRepository.getByIdOrThrow(userId)).thenReturn(user);
-            when(superHostTicketRepository.save(any(SuperHostTicket.class))).thenThrow(exception);
-
-            assertThatThrownBy(() -> superHostService.grantOnboardingRewardTicket(userId))
-                    .isSameAs(exception);
+            verify(superHostTicketRepository, never()).saveAll(any());
         }
     }
 
@@ -150,9 +131,10 @@ class SuperHostServiceTest {
             SuperHostTicket ticket = SuperHostTicket.create(user, SuperHostTicketSource.ONBOARDING_SURVEY, 3);
             ReflectionTestUtils.setField(ticket, "id", 99L);
 
-            when(postRepository.findSuperHostApplicableByIdAndUserId(postId, userId, PostStatus.OPEN)).thenReturn(Optional.of(post));
-            when(superHostExposureRepository.existsByUser_IdAndStatusAndEndedAtAfter(eq(userId), eq(SuperHostExposureStatus.ACTIVE), any(LocalDateTime.class)))
-                    .thenReturn(false);
+            when(postRepository.findSuperHostApplicableByIdAndUserIdWithLock(
+                    postId, userId, PostStatus.OPEN, NOW.toLocalDate())).thenReturn(Optional.of(post));
+            when(superHostExposureRepository.findLatestActiveEndedAtByPostId(
+                    postId, SuperHostExposureStatus.ACTIVE, NOW)).thenReturn(Optional.empty());
             when(superHostTicketRepository.findFirstByUser_IdAndStatusOrderByIdAsc(userId, SuperHostTicketStatus.UNUSED))
                     .thenReturn(Optional.of(ticket));
             when(superHostTicketRepository.countByUser_IdAndStatus(userId, SuperHostTicketStatus.UNUSED)).thenReturn(0L);
@@ -165,30 +147,44 @@ class SuperHostServiceTest {
             assertThat(ticket.getStatus()).isEqualTo(SuperHostTicketStatus.USED);
             assertThat(response.postId()).isEqualTo(postId);
             assertThat(response.ticketId()).isEqualTo(99L);
-            assertThat(response.startedAt()).isNotNull();
-            assertThat(response.endsAt()).isNotNull();
+            assertThat(response.startedAt()).isEqualTo(NOW);
+            assertThat(response.endsAt()).isEqualTo(NOW.plusDays(3));
             assertThat(response.unusedTicketCount()).isEqualTo(0);
         }
 
         @Test
-        @DisplayName("활성 슈퍼호스트가 이미 있으면 실패한다")
-        void failsWhenAlreadyActive() {
+        @DisplayName("적용 중인 게시글에 티켓을 추가하면 최종 종료 시각부터 연장된다")
+        void extendsFromCurrentFinalEndTime() {
             Long userId = 1L;
+            Long postId = 10L;
             User user = createUser(userId);
-            Post post = createPost(10L, user);
+            Post post = createPost(postId, user);
+            SuperHostTicket ticket = SuperHostTicket.create(user, SuperHostTicketSource.ONBOARDING_SURVEY, 3);
+            ReflectionTestUtils.setField(ticket, "id", 100L);
+            LocalDateTime currentEndsAt = NOW.plusDays(2);
 
-            when(postRepository.findSuperHostApplicableByIdAndUserId(10L, userId, PostStatus.OPEN)).thenReturn(Optional.of(post));
-            when(superHostExposureRepository.existsByUser_IdAndStatusAndEndedAtAfter(eq(userId), eq(SuperHostExposureStatus.ACTIVE), any(LocalDateTime.class)))
-                    .thenReturn(true);
+            when(postRepository.findSuperHostApplicableByIdAndUserIdWithLock(
+                    postId, userId, PostStatus.OPEN, NOW.toLocalDate())).thenReturn(Optional.of(post));
+            when(superHostTicketRepository.findFirstByUser_IdAndStatusOrderByIdAsc(userId, SuperHostTicketStatus.UNUSED))
+                    .thenReturn(Optional.of(ticket));
+            when(superHostExposureRepository.findLatestActiveEndedAtByPostId(
+                    postId, SuperHostExposureStatus.ACTIVE, NOW)).thenReturn(Optional.of(currentEndsAt));
+            when(superHostTicketRepository.countByUser_IdAndStatus(userId, SuperHostTicketStatus.UNUSED)).thenReturn(0L);
 
-            assertThatThrownBy(() -> superHostService.applyTicketToPost(userId, 10L))
-                    .isInstanceOf(SuperHostAlreadyActiveException.class);
+            SuperHostApplyResponse response = superHostService.applyTicketToPost(userId, postId);
+
+            ArgumentCaptor<SuperHostExposure> exposureCaptor = ArgumentCaptor.forClass(SuperHostExposure.class);
+            verify(superHostExposureRepository).save(exposureCaptor.capture());
+            assertThat(exposureCaptor.getValue().getStartedAt()).isEqualTo(NOW);
+            assertThat(exposureCaptor.getValue().getEndedAt()).isEqualTo(currentEndsAt.plusDays(3));
+            assertThat(response.endsAt()).isEqualTo(currentEndsAt.plusDays(3));
         }
 
         @Test
         @DisplayName("적용 불가 게시글이면 예외가 발생한다")
         void failsWhenPostNotApplicable() {
-            when(postRepository.findSuperHostApplicableByIdAndUserId(10L, 1L, PostStatus.OPEN)).thenReturn(Optional.empty());
+            when(postRepository.findSuperHostApplicableByIdAndUserIdWithLock(
+                    10L, 1L, PostStatus.OPEN, NOW.toLocalDate())).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> superHostService.applyTicketToPost(1L, 10L))
                     .isInstanceOf(SuperHostPostNotApplicableException.class);
@@ -198,24 +194,6 @@ class SuperHostServiceTest {
     @Nested
     @DisplayName("슈퍼호스트 조회")
     class Query {
-
-        @Test
-        @DisplayName("슈퍼호스트 목록은 ACTIVE 노출로 구성된다")
-        void retrieveSuperHostPostsReturnsActiveList() {
-            User user = createUser(1L);
-            Post post = createPost(10L, user);
-            SuperHostTicket ticket = SuperHostTicket.create(user, SuperHostTicketSource.ONBOARDING_SURVEY, 3);
-            LocalDateTime endsAt = NOW.plusDays(3);
-            SuperHostExposure exposure = SuperHostExposure.create(ticket, user, post, NOW, endsAt);
-
-            when(superHostExposureRepository.findVisibleExposures(any(), any(), any(Pageable.class))).thenReturn(List.of(exposure));
-
-            SuperHostPostListResponse response = superHostService.retrieveSuperHostPosts(5);
-
-            assertThat(response.items()).hasSize(1);
-            assertThat(response.items().get(0).id()).isEqualTo(10L);
-            assertThat(response.items().get(0).author().isSuperHost()).isTrue();
-        }
 
         @Test
         @DisplayName("만료 노출 종료 처리는 ACTIVE -> ENDED 갱신 수를 반환한다")
@@ -232,25 +210,32 @@ class SuperHostServiceTest {
         }
 
         @Test
-        @DisplayName("내 슈퍼호스트 현황 조회 시 티켓 수와 활성 정보를 반환한다")
-        void getMyStatusReturnsIssuedCountAndActiveExposure() {
+        @DisplayName("내 슈퍼호스트 관리 조회 시 적용 중과 미적용 게시글을 분리한다")
+        void getMyStatusSeparatesAppliedAndAvailablePosts() {
             Long userId = 1L;
             User user = createUser(userId);
-            Post post = createPost(10L, user);
-            SuperHostTicket ticket = SuperHostTicket.create(user, SuperHostTicketSource.ONBOARDING_SURVEY, 3);
-            SuperHostExposure exposure = SuperHostExposure.create(ticket, user, post, NOW, NOW.plusDays(2));
+            Post appliedPost = createPost(10L, user);
+            Post availablePost = createPost(20L, user);
+            LocalDateTime finalEndsAt = NOW.plusDays(5);
 
             when(superHostTicketRepository.countByUser_IdAndStatus(userId, SuperHostTicketStatus.UNUSED)).thenReturn(2L);
-            when(superHostExposureRepository.findFirstByUser_IdAndStatusAndEndedAtAfterOrderByStartedAtDesc(
-                    eq(userId), eq(SuperHostExposureStatus.ACTIVE), any(LocalDateTime.class))
-            ).thenReturn(Optional.of(exposure));
+            when(postRepository.findSuperHostManageablePostsByUserId(
+                    userId, PostStatus.OPEN, NOW.toLocalDate())).thenReturn(List.of(availablePost, appliedPost));
+            when(superHostExposureRepository.findActivePostIdsWithEndedAt(
+                    List.of(20L, 10L), SuperHostExposureStatus.ACTIVE, NOW))
+                    .thenReturn(List.<Object[]>of(new Object[]{10L, finalEndsAt}));
 
             MySuperHostStatusResponse response = superHostService.getMyStatus(userId);
 
             assertThat(response.unusedTicketCount()).isEqualTo(2);
-            assertThat(response.hasActive()).isTrue();
-            assertThat(response.activePostId()).isEqualTo(10L);
-            assertThat(response.activeEndsAt()).isNotNull();
+            assertThat(response.appliedPosts()).singleElement().satisfies(post -> {
+                assertThat(post.postId()).isEqualTo(10L);
+                assertThat(post.superHostEndsAt()).isEqualTo(finalEndsAt);
+            });
+            assertThat(response.availablePosts()).singleElement().satisfies(post -> {
+                assertThat(post.postId()).isEqualTo(20L);
+                assertThat(post.superHostEndsAt()).isNull();
+            });
         }
     }
 
@@ -283,10 +268,10 @@ class SuperHostServiceTest {
                 destination,
                 "제목입니다",
                 "내용은 스무 글자 이상으로 작성합니다.",
-                LocalDate.now().plusDays(3),
-                LocalDate.now().plusDays(5),
+                NOW.toLocalDate().plusDays(3),
+                NOW.toLocalDate().plusDays(5),
                 4,
-                LocalDate.now().plusDays(2),
+                NOW.toLocalDate().plusDays(2),
                 Gender.U,
                 true,
                 null,

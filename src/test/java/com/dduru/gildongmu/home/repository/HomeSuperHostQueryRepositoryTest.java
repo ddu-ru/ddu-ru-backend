@@ -61,6 +61,7 @@ class HomeSuperHostQueryRepositoryTest {
     @DisplayName("참여 가능한 활성 노출만 조회하고 본인 글은 포함하며 신고한 글은 제외한다")
     void filtersVisibleSuperHosts() {
         Post ownPost = exposedPost(viewer, NOW.minusHours(1), NOW.plusDays(2));
+        extendExposure(ownPost, NOW.minusMinutes(30), NOW.plusDays(5));
 
         Post reported = exposedPost(user("reported"), NOW.minusHours(1), NOW.plusDays(2));
         em.persist(Report.createReport(viewer, reported, ReportReason.values()[0], "신고 사유"));
@@ -137,6 +138,16 @@ class HomeSuperHostQueryRepositoryTest {
         em.persist(ticket);
         em.persist(SuperHostExposure.create(ticket, host, post, startedAt, endedAt));
         return post;
+    }
+
+    private void extendExposure(Post post, LocalDateTime startedAt, LocalDateTime endedAt) {
+        SuperHostTicket ticket = SuperHostTicket.create(
+                post.getUser(),
+                SuperHostTicketSource.ONBOARDING_SURVEY,
+                3
+        );
+        em.persist(ticket);
+        em.persist(SuperHostExposure.create(ticket, post.getUser(), post, startedAt, endedAt));
     }
 
     private void change(Post post, String assignments) {
