@@ -164,7 +164,7 @@
 | 일정 | `JourneySchedule` | V20 | `JourneyScheduleService` | ✅ 구현 |
 | 할 일 | - | - | - | ⏸️ 보류 |
 | 여행 정보 | - | - | - | ⏸️ 보류 |
-| 투표 | `JourneyPoll`, `JourneyPollOption`, `JourneyPollVote` | V33 | `JourneyPollService`, `JourneyPollQueryService` | 구현 |
+| 투표 | `JourneyPoll`, `JourneyPollOption`, `JourneyPollVote` | V34 | `JourneyPollService`, `JourneyPollQueryService` | 구현 |
 
 ---
 
@@ -227,7 +227,7 @@
 - 재투표/선택지 추가는 부모 투표 행의 비관적 잠금으로 직렬화합니다. 명령 트랜잭션은 `READ_COMMITTED`를 사용해 잠금 대기 후 이전 요청의 최신 선택/집계를 읽습니다.
 - 각 선택지별 `(option_id, user_id)` 유니크 제약으로 중복 저장을 막고, 참여자 수와 옵션별 득표수는 DB에서 집계합니다.
 - 채팅 연동과 `POLL_UPDATED` 이벤트는 [채팅 구현 문서](006-chat.md#6-투표-카드-연동)를 참고합니다.
-- V33은 투표 테이블 3개와 `chat_messages.poll_id`를 추가하고 `message_type`의 MySQL ENUM에 `POLL`을 추가합니다.
+- V34는 투표 테이블 3개와 `chat_messages.poll_id`를 추가하고 `message_type`의 MySQL ENUM에 `POLL`을 추가합니다.
 - 투표 테스트는 서비스 단위 테스트와 H2 기반 서비스 트랜잭션/동시성 테스트로 구성합니다. 상세 조회자 수와 실기기 FCM/채팅 UI 확인은 별도 항목이며, 기존 MySQL Flyway 테스트는 Docker가 있어야 실행됩니다.
 
 ## 5. 주요 설계 포인트
