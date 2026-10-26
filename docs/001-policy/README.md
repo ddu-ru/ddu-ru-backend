@@ -8,6 +8,7 @@
 | [홈 메이트 추천 정책](./001-home-mate-recommendation-policy.md) | 추천 대상, 제외 기준, 하루 제공량, 재노출/재생성 정책 |
 | [홈 여행방 추천 공통 노출 조건](./002-home-recommendation-eligibility.md) | 공통 필터, 추천별 추가 조건 및 모집 상태 기준 |
 | [홈 인기 여행지 정책](./003-home-popular-destinations.md) | 최근 30일 인기 순위, 기본 여행지 보충, 노출·갱신 기준 |
+| [슈퍼호스트 정책](./004-super-host-policy.md) | 티켓 지급·적용·연장과 게시글 관리 및 노출 기준 |
 
 ## 문서 작성 기준
 

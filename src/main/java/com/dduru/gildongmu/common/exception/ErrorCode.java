@@ -137,7 +137,6 @@ public enum ErrorCode {
 
     // 슈퍼호스트 (SUPER_HOST)
     SUPER_HOST_TICKET_NOT_FOUND(HttpStatus.NOT_FOUND, "사용 가능한 슈퍼호스트 티켓이 없습니다."),
-    SUPER_HOST_ALREADY_ACTIVE(HttpStatus.CONFLICT, "이미 활성화된 슈퍼호스트 게시글이 있습니다."),
     SUPER_HOST_TICKET_NOT_USABLE(HttpStatus.BAD_REQUEST, "사용할 수 없는 슈퍼호스트 티켓입니다."),
     SUPER_HOST_POST_NOT_APPLICABLE(HttpStatus.BAD_REQUEST, "슈퍼호스트로 노출할 수 없는 게시글입니다."),
 

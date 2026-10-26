@@ -70,6 +70,7 @@ public class HomeSuperHostQueryRepository {
                         profile.birthday,
                         profile.gender
                 ))
+                .distinct()
                 .from(superHostExposure)
                 .join(superHostExposure.post, post)
                 .join(post.destination, destination)

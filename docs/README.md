@@ -37,6 +37,8 @@ docs/
 ├── 001-policy/
 │   ├── 001-home-mate-recommendation-policy.md
 │   ├── 002-home-recommendation-eligibility.md
+│   ├── 003-home-popular-destinations.md
+│   ├── 004-super-host-policy.md
 │   └── flows/
 ├── 002-design/
 │   ├── 001-domain.md
@@ -55,7 +57,10 @@ docs/
 │   ├── 005-notification.md
 │   ├── 006-chat.md
 │   ├── 007-travel-preferences-and-home-destination-trips.md
-│   └── 008-home-same-age-trips.md
+│   ├── 008-home-same-age-trips.md
+│   ├── 009-home-section-query-policy.md
+│   ├── 010-home-popular-destinations.md
+│   └── 011-super-host.md
 ├── 005-architecture/
 │   ├── 001-package-structure.md
 │   ├── 002-common-foundation.md
@@ -94,6 +99,8 @@ docs/
 
 - [홈 메이트 추천 정책](./001-policy/001-home-mate-recommendation-policy.md)
 - [홈 여행방 추천 공통 노출 조건](./001-policy/002-home-recommendation-eligibility.md)
+- [홈 인기 여행지 정책](./001-policy/003-home-popular-destinations.md)
+- [슈퍼호스트 정책](./001-policy/004-super-host-policy.md)
 - [제품/기능 흐름](./001-policy/flows/)
 
 ### 002-design - 설계
@@ -123,6 +130,9 @@ AI와 개발자가 기능 구현 시 참고할 내부 구현 세부를 정리합
 - [채팅 구현 문서](./004-implementation/006-chat.md)
 - [여행지 선호와 홈 같은 여행지 동행](./004-implementation/007-travel-preferences-and-home-destination-trips.md)
 - [홈 또래 동행 구현 문서](./004-implementation/008-home-same-age-trips.md)
+- [홈 섹션 조회 정책](./004-implementation/009-home-section-query-policy.md)
+- [홈 인기 여행지 집계](./004-implementation/010-home-popular-destinations.md)
+- [슈퍼호스트 구현](./004-implementation/011-super-host.md)
 
 ### 005-architecture - 코드 구조
 

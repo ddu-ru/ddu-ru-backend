@@ -11,6 +11,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 public interface PostRepository extends JpaRepository<Post, Long>, PostRepositoryCustom {
@@ -21,6 +22,7 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
     @Query("SELECT p FROM Post p WHERE p.id = :id AND p.isDeleted = false")
     Optional<Post> findActiveByIdWithLock(@Param("id") Long id);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             SELECT p
             FROM Post p
@@ -28,11 +30,33 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
               AND p.user.id = :userId
               AND p.isDeleted = false
               AND p.status = :status
+              AND p.recruitCount < p.recruitCapacity
+              AND p.endDate >= :today
+              AND (p.recruitDeadline IS NULL OR p.recruitDeadline >= :today)
             """)
-    Optional<Post> findSuperHostApplicableByIdAndUserId(
+    Optional<Post> findSuperHostApplicableByIdAndUserIdWithLock(
             @Param("postId") Long postId,
             @Param("userId") Long userId,
-            @Param("status") PostStatus status
+            @Param("status") PostStatus status,
+            @Param("today") LocalDate today
+    );
+
+    @Query("""
+            SELECT p
+            FROM Post p
+            JOIN FETCH p.destination
+            WHERE p.user.id = :userId
+              AND p.isDeleted = false
+              AND p.status = :status
+              AND p.recruitCount < p.recruitCapacity
+              AND p.endDate >= :today
+              AND (p.recruitDeadline IS NULL OR p.recruitDeadline >= :today)
+            ORDER BY p.id DESC
+            """)
+    List<Post> findSuperHostManageablePostsByUserId(
+            @Param("userId") Long userId,
+            @Param("status") PostStatus status,
+            @Param("today") LocalDate today
     );
 
     @Modifying
