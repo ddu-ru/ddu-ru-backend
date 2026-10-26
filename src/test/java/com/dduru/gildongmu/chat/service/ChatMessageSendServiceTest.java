@@ -7,6 +7,15 @@ import com.dduru.gildongmu.chat.domain.enums.ChatMemberRole;
 import com.dduru.gildongmu.chat.domain.enums.ChatMessageType;
 import com.dduru.gildongmu.chat.dto.ws.ChatMessageSendRequest;
 import com.dduru.gildongmu.chat.event.ChatMessageCreatedEvent;
+import com.dduru.gildongmu.chat.constants.ChatDestinationPaths;
+import com.dduru.gildongmu.chat.domain.enums.ChatRoomType;
+import com.dduru.gildongmu.chat.domain.enums.ChatRoomStatus;
+import com.dduru.gildongmu.chat.dto.ws.ChatMessageBroadcastPayload;
+import com.dduru.gildongmu.chat.exception.ChatPollMessageSendAccessDeniedException;
+import com.dduru.gildongmu.chat.exception.ChatRoomClosedException;
+import com.dduru.gildongmu.journey.domain.Journey;
+import com.dduru.gildongmu.journey.domain.JourneyPoll;
+import com.dduru.gildongmu.journey.dto.response.JourneyPollSummaryResponse;
 import com.dduru.gildongmu.chat.repository.ChatMessageRepository;
 import com.dduru.gildongmu.chat.repository.ChatRoomMemberRepository;
 import com.dduru.gildongmu.chat.repository.ChatRoomRepository;
@@ -30,9 +39,15 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.assertj.core.api.Assertions.*;
+import org.mockito.ArgumentCaptor;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -126,6 +141,64 @@ class ChatMessageSendServiceTest {
         Profile profile = new Profile(user);
         ReflectionTestUtils.setField(user, "profile", profile);
         return user;
+    }
+
+    @Test
+    void publishesPollCardAndAdvancesSenderReadCursor() {
+        User sender = createUser(10L, "sender");
+        Journey journey = Journey.create(createPost(100L, sender));
+        ReflectionTestUtils.setField(journey, "id", 1L);
+        ChatRoom room = ChatRoom.createGroupChat(journey);
+        ReflectionTestUtils.setField(room, "id", 20L);
+        ChatRoomMember member = ChatRoomMember.create(room, sender, ChatMemberRole.HOST);
+        LocalDateTime now = LocalDateTime.now();
+        JourneyPoll poll = JourneyPoll.create(journey, sender, "Dinner", true, true, true, now.plusDays(1), now);
+        ReflectionTestUtils.setField(poll, "id", 5L);
+        JourneyPollSummaryResponse summary = JourneyPollSummaryResponse.from(poll, now, 0, List.of(), null);
+        when(chatRoomRepository.findByJourneyIdAndRoomType(1L, ChatRoomType.GROUP)).thenReturn(Optional.of(room));
+        when(chatRoomMemberRepository.findByRoomIdAndUserIdWithLock(20L, 10L)).thenReturn(Optional.of(member));
+        when(chatMessageRepository.saveAndFlush(any())).thenAnswer(invocation -> {
+            ChatMessage message = invocation.getArgument(0);
+            ReflectionTestUtils.setField(message, "id", 123L);
+            return message;
+        });
+
+        service.publishPoll(poll, summary);
+
+        assertThat(member.getLastReadMessage().getPoll()).isSameAs(poll);
+        verify(eventPublisher).publishEvent(new ChatMessageCreatedEvent(20L, 123L));
+        ArgumentCaptor<ChatMessageBroadcastPayload> payload = ArgumentCaptor.forClass(ChatMessageBroadcastPayload.class);
+        verify(simpMessagingTemplate).convertAndSend(eq(ChatDestinationPaths.topicRoom(20L)), payload.capture());
+        assertThat(payload.getValue().messageType()).isEqualTo(ChatMessageType.POLL);
+        assertThat(payload.getValue().poll().selectedOptionIds()).isNull();
+        assertThat(payload.getValue().userMessage()).isNull();
+    }
+
+    @Test
+    void rejectsClientForgedPollMessages() {
+        User sender = createUser(10L, "sender");
+        ChatRoom room = ChatRoom.forPrivateChat(createPost(100L, sender));
+        when(chatRoomRepository.getByIdOrThrow(20L)).thenReturn(room);
+        when(chatRoomMemberRepository.findByRoomIdAndUserIdWithLock(20L, 10L))
+                .thenReturn(Optional.of(ChatRoomMember.create(room, sender, ChatMemberRole.HOST)));
+        when(userRepository.getWithProfileByIdOrThrow(10L)).thenReturn(sender);
+        assertThatThrownBy(() -> service.sendUserMessage(10L, 20L, new ChatMessageSendRequest(ChatMessageType.POLL, "5")))
+                .isInstanceOf(ChatPollMessageSendAccessDeniedException.class);
+        verify(chatMessageRepository, never()).save(any());
+    }
+
+    @Test
+    void closedRoomCannotReceivePollCard() {
+        User sender = createUser(10L, "sender");
+        Journey journey = Journey.create(createPost(100L, sender));
+        ReflectionTestUtils.setField(journey, "id", 1L);
+        ChatRoom room = ChatRoom.createGroupChat(journey);
+        ReflectionTestUtils.setField(room, "status", ChatRoomStatus.CLOSED);
+        when(chatRoomRepository.findByJourneyIdAndRoomType(1L, ChatRoomType.GROUP)).thenReturn(Optional.of(room));
+        JourneyPoll poll = JourneyPoll.create(journey, sender, "Dinner", false, false, false,
+                LocalDateTime.now().plusDays(1), LocalDateTime.now());
+        assertThatThrownBy(() -> service.publishPoll(poll, null)).isInstanceOf(ChatRoomClosedException.class);
+        verify(chatMessageRepository, never()).saveAndFlush(any());
     }
 
     private static Post createPost(Long postId, User owner) {

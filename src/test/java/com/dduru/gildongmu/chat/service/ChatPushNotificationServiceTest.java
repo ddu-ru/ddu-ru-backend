@@ -70,6 +70,13 @@ class ChatPushNotificationServiceTest {
     class SendPush {
 
         @Test
+        void sendsPollTitleAsPreview() {
+            service.sendPush(List.of(1L), "도쿄 여행", "홍길동", "저녁 메뉴", ChatMessageType.POLL, ChatRoomType.GROUP, 5L);
+            verify(fcmPushService).sendToUsers(eq(List.of(1L)), eq("도쿄 여행"),
+                    eq("홍길동: 투표가 등록되었습니다: 저녁 메뉴"), eq("chat:5"), any());
+        }
+
+        @Test
         @DisplayName("TEXT 메시지는 닉네임: 내용 형식으로 발송한다")
         void sendsTextMessageWithNicknameAndContent() {
             service.sendPush(List.of(1L), "도쿄 여행", "홍길동", "오늘 저녁 어때?", ChatMessageType.TEXT, ChatRoomType.GROUP, 5L);

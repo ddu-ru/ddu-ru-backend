@@ -16,6 +16,7 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
             FROM ChatMessage m
             LEFT JOIN FETCH m.sender s
             LEFT JOIN FETCH s.profile
+            LEFT JOIN FETCH m.poll
             WHERE m.room.id = :roomId
               AND m.createdAt >= :visibleFrom
               AND (:beforeMessageId IS NULL OR m.id < :beforeMessageId)

@@ -184,7 +184,8 @@ class ChatControllerTest {
                         List.of(),
                         null,
                         null,
-                        LocalDateTime.of(2026, 5, 9, 9, 41)
+                        LocalDateTime.of(2026, 5, 9, 9, 41),
+                        null
                 ))
         );
         when(chatMessageQueryService.retrieveMessages(eq(10L), eq(roomId), any(ChatMessageRetrieveRequest.class)))

@@ -2,6 +2,7 @@ package com.dduru.gildongmu.chat.domain;
 
 import com.dduru.gildongmu.chat.domain.enums.ChatMessageType;
 import com.dduru.gildongmu.common.entity.BaseTimeEntity;
+import com.dduru.gildongmu.journey.domain.JourneyPoll;
 import com.dduru.gildongmu.user.domain.User;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -34,6 +35,10 @@ public class ChatMessage extends BaseTimeEntity {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "poll_id", unique = true)
+    private JourneyPoll poll;
+
     @Builder(access = AccessLevel.PRIVATE)
     private ChatMessage(ChatRoom room, User sender, ChatMessageType messageType, String content) {
         this.room = room;
@@ -49,5 +54,11 @@ public class ChatMessage extends BaseTimeEntity {
                 .messageType(messageType)
                 .content(content)
                 .build();
+    }
+
+    public static ChatMessage forPoll(ChatRoom room, JourneyPoll poll) {
+        ChatMessage message = create(room, poll.getAuthor(), ChatMessageType.POLL, poll.getTitle());
+        message.poll = poll;
+        return message;
     }
 }
