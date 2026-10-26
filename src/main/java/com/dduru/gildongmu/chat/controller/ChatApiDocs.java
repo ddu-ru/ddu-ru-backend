@@ -47,7 +47,7 @@ public interface ChatApiDocs {
             summary = "채팅방 메시지 목록 조회",
             description = "채팅방의 메시지를 beforeMessageId 커서 기준으로 조회합니다. " +
                     "첫 페이지는 beforeMessageId 없이 호출하고, 다음 과거 페이지는 page.nextCursor를 beforeMessageId로 전달합니다. " +
-                    "응답 메시지는 오래된 순서로 반환되며 messageType에 따라 content(TEXT), images(IMAGE), systemMessage(SYSTEM) 중 하나를 사용합니다."
+                    "응답 메시지는 오래된 순서로 반환되며 messageType에 따라 content(TEXT), images(IMAGE), systemMessage(SYSTEM), poll(POLL) 중 하나를 사용합니다."
     )
     @ApiResponse(responseCode = "200", description = "조회 성공")
     @ApiErrorResponses({

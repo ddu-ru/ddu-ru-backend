@@ -55,7 +55,7 @@
 - 갤러리 통합조회 → ✅ 완료
 - 할 일 → ⏸️ 보류
 - 여행 정보 → ⏸️ 보류
-- 투표 → ⏸️ 보류
+- 투표 → 생성/목록/상세/투표/재투표/선택지 추가 구현
 
 ### 5단계. 호스트 전용 관리 기능 🔄 진행 중
 
@@ -142,9 +142,11 @@
 
 | 기능 | 메서드 | 엔드포인트 | 상태 |
 |------|--------|-----------|------|
-| 투표 목록 조회 | `GET` | `/api/v1/journeys/{journeyId}/polls` | ⏸️ 보류 |
-| 투표 생성 | `POST` | `/api/v1/journeys/{journeyId}/polls` | ⏸️ 보류 |
-| 투표 참여 | `POST` | `/api/v1/journeys/{journeyId}/polls/{pollId}/votes` | ⏸️ 보류 |
+| 투표 목록 조회 | `GET` | `/api/v1/journeys/{journeyId}/polls` | 구현 |
+| 투표 생성 | `POST` | `/api/v1/journeys/{journeyId}/polls` | 구현 |
+| 투표 상세 조회 | `GET` | `/api/v1/journeys/{journeyId}/polls/{pollId}` | 구현 |
+| 투표 및 재투표 | `PUT` | `/api/v1/journeys/{journeyId}/polls/{pollId}/votes/me` | 구현 |
+| 선택지 추가 | `POST` | `/api/v1/journeys/{journeyId}/polls/{pollId}/options` | 구현 |
 | 투표 확정 (호스트 전용) | `PATCH` | `/api/v1/journeys/{journeyId}/polls/{pollId}/finalize` | ⏸️ 보류 |
 
 ---
@@ -162,9 +164,71 @@
 | 일정 | `JourneySchedule` | V20 | `JourneyScheduleService` | ✅ 구현 |
 | 할 일 | - | - | - | ⏸️ 보류 |
 | 여행 정보 | - | - | - | ⏸️ 보류 |
-| 투표 | - | - | - | ⏸️ 보류 |
+| 투표 | `JourneyPoll`, `JourneyPollOption`, `JourneyPollVote` | V33 | `JourneyPollService`, `JourneyPollQueryService` | 구현 |
 
 ---
+
+### 투표 API 계약
+
+투표의 생성/조회/투표/선택지 추가는 활성 여정 멤버가 사용할 수 있습니다. 생성에는 활성 그룹 채팅방과 생성자의 채팅 멤버십도 필요합니다.
+투표 목록은 `cursor`(마지막 투표 ID), `size`(기본 20, 최대 50)를 받으며 ID 내림차순으로 종료된 투표까지 반환합니다.
+
+생성 요청:
+
+```json
+{
+  "title": "저녁 뭐 먹을까요?",
+  "options": ["한식", "일식", "중식"],
+  "allowMultipleChoices": true,
+  "anonymous": true,
+  "allowOptionAddition": true,
+  "closesAt": "2026-12-01T18:00:00"
+}
+```
+
+- 제목과 선택지는 앞뒤 공백을 제거한 뒤 1~100자로 검증합니다. 선택지는 2~10개이며 같은 내용은 허용하지 않습니다.
+- 종료 시각은 서비스 시간대(Asia/Seoul) 기준으로 미래여야 합니다. `now >= closesAt`이면 `CLOSED`이며 투표/선택지 추가를 거절합니다.
+- 생성 뒤 제목, 설정, 종료 시각 변경, 조기 종료/확정, 투표 삭제는 이번 범위에 포함하지 않습니다.
+- `PUT /{pollId}/votes/me` 요청은 `{"optionIds":[11,12]}`입니다. 단일 선택은 정확히 1개만 허용하고 다른 투표의 선택지, 중복 ID, 빈 배열은 거절합니다.
+- 다시 투표하기는 같은 PUT API를 사용합니다. 화면에서 다시 선택하는 동안 기존 표를 유지하고 제출할 때 전체 교체합니다. 동일한 선택 재요청은 변경/이벤트 없이 성공합니다.
+- `POST /{pollId}/options` 요청은 `{"content":"양식"}`입니다. 추가 허용 설정이 켜진 경우에만 활성 멤버 누구나 추가할 수 있고, 추가 후에도 총 10개 제한을 유지합니다.
+
+상세/생성/투표/선택지 추가 응답은 공통 `ApiResult`의 `data`에 아래 구조를 사용합니다.
+
+```json
+{
+  "poll": {
+    "pollId": 5,
+    "journeyId": 1,
+    "title": "저녁 뭐 먹을까요?",
+    "status": "OPEN",
+    "closesAt": "2026-12-01T18:00:00",
+    "allowMultipleChoices": true,
+    "anonymous": true,
+    "allowOptionAddition": true,
+    "voterCount": 1,
+    "options": [
+      {"optionId": 11, "content": "한식", "voteCount": 1},
+      {"optionId": 12, "content": "일식", "voteCount": 1},
+      {"optionId": 13, "content": "중식", "voteCount": 0}
+    ],
+    "selectedOptionIds": [11, 12]
+  },
+  "author": {"userId": 10, "nickname": "여행자", "profileImageUrl": null},
+  "createdAt": "2026-11-30T12:00:00",
+  "voters": []
+}
+```
+
+- 목록의 `polls`와 채팅 카드 `poll`은 위 응답의 `poll` 요약 구조를 재사용합니다. 목록에는 `nextCursor`, `hasNext`, 실제 반환 개수인 `size`도 포함합니다.
+- 득표수는 투표 전에도 공개합니다. `voterCount`는 선택지별 표의 합이 아니라 중복을 제거한 참여자 수입니다.
+- 익명 투표는 `voters: []`이며 본인 선택만 `selectedOptionIds`로 반환합니다. 비익명 상세 응답은 `voters`에 `{optionId, voter: {userId, nickname, profileImageUrl}}`을 반환합니다. 생성자 정보는 익명 여부와 관계없이 표시합니다.
+- 여정에서 나가거나 강퇴된 멤버의 기존 표는 보존하지만 그 멤버는 조회/재투표할 수 없습니다. 나중에 합류한 활성 멤버는 여정 투표 목록에서 기존 투표에 접근할 수 있습니다.
+- 재투표/선택지 추가는 부모 투표 행의 비관적 잠금으로 직렬화합니다. 명령 트랜잭션은 `READ_COMMITTED`를 사용해 잠금 대기 후 이전 요청의 최신 선택/집계를 읽습니다.
+- 각 선택지별 `(option_id, user_id)` 유니크 제약으로 중복 저장을 막고, 참여자 수와 옵션별 득표수는 DB에서 집계합니다.
+- 채팅 연동과 `POLL_UPDATED` 이벤트는 [채팅 구현 문서](006-chat.md#6-투표-카드-연동)를 참고합니다.
+- V33은 투표 테이블 3개와 `chat_messages.poll_id`를 추가하고 `message_type`의 MySQL ENUM에 `POLL`을 추가합니다.
+- 투표 테스트는 서비스 단위 테스트와 H2 기반 서비스 트랜잭션/동시성 테스트로 구성합니다. 상세 조회자 수와 실기기 FCM/채팅 UI 확인은 별도 항목이며, 기존 MySQL Flyway 테스트는 Docker가 있어야 실행됩니다.
 
 ## 5. 주요 설계 포인트
 

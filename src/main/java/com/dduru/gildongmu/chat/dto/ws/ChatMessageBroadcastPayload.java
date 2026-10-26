@@ -6,6 +6,7 @@ import com.dduru.gildongmu.chat.system.ChatSystemMessageFactory;
 import com.dduru.gildongmu.post.domain.Post;
 import com.dduru.gildongmu.profile.utils.ProfileImageResolver;
 import com.dduru.gildongmu.user.domain.User;
+import com.dduru.gildongmu.journey.dto.response.JourneyPollSummaryResponse;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
@@ -34,7 +35,7 @@ public record ChatMessageBroadcastPayload(
         @Schema(description = "모집 정원", example = "4")
         int recruitCapacity,
 
-        @Schema(description = "메시지 타입", example = "TEXT", allowableValues = {"TEXT", "IMAGE", "SYSTEM"})
+        @Schema(description = "메시지 타입", example = "TEXT", allowableValues = {"TEXT", "IMAGE", "SYSTEM", "POLL"})
         ChatMessageType messageType,
 
         @Schema(description = "발신자 정보. SYSTEM 메시지는 null", nullable = true)
@@ -47,7 +48,10 @@ public record ChatMessageBroadcastPayload(
         ChatSystemMessagePayload systemMessage,
 
         @Schema(description = "메시지 생성 시각")
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+
+        @Schema(description = "POLL 카드. 사용자별 선택과 투표자 신원은 공용 메시지에 포함하지 않습니다.")
+        JourneyPollSummaryResponse poll
 ) {
     public static ChatMessageBroadcastPayload ofUserMessage(ChatMessage message, Post post, User sender, ProfileImageResolver profileImageResolver) {
         return ChatMessageBroadcastPayload.builder()
@@ -77,6 +81,22 @@ public record ChatMessageBroadcastPayload(
                 .userMessage(null)
                 .systemMessage(chatSystemMessageFactory.deserialize(message.getContent()))
                 .createdAt(message.getCreatedAt())
+                .build();
+    }
+
+    public static ChatMessageBroadcastPayload ofPollMessage(ChatMessage message, Post post,
+                                                            ProfileImageResolver profileImageResolver,
+                                                            JourneyPollSummaryResponse poll) {
+        return ChatMessageBroadcastPayload.builder()
+                .messageId(message.getId())
+                .roomId(message.getRoom().getId())
+                .postTitle(post.getTitle())
+                .recruitCount(post.getRecruitCount())
+                .recruitCapacity(post.getRecruitCapacity())
+                .messageType(ChatMessageType.POLL)
+                .sender(ChatMessageSenderPayload.from(message.getSender(), post.getUser().getId(), profileImageResolver))
+                .createdAt(message.getCreatedAt())
+                .poll(poll)
                 .build();
     }
 

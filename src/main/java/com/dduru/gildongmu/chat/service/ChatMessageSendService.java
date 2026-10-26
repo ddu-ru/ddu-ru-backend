@@ -7,6 +7,7 @@ import com.dduru.gildongmu.chat.domain.ChatRoom;
 import com.dduru.gildongmu.chat.domain.ChatRoomMember;
 import com.dduru.gildongmu.chat.domain.enums.ChatMessageType;
 import com.dduru.gildongmu.chat.domain.enums.ChatRoomStatus;
+import com.dduru.gildongmu.chat.domain.enums.ChatRoomType;
 import com.dduru.gildongmu.chat.dto.ws.ChatMessageBroadcastPayload;
 import com.dduru.gildongmu.chat.dto.ws.ChatMessageSendRequest;
 import com.dduru.gildongmu.chat.dto.ws.ChatSystemMessagePayload;
@@ -14,6 +15,8 @@ import com.dduru.gildongmu.chat.event.ChatMessageCreatedEvent;
 import com.dduru.gildongmu.chat.exception.ChatAccessDeniedException;
 import com.dduru.gildongmu.chat.exception.ChatRoomClosedException;
 import com.dduru.gildongmu.chat.exception.ChatSystemMessageSendAccessDeniedException;
+import com.dduru.gildongmu.chat.exception.ChatPollMessageSendAccessDeniedException;
+import com.dduru.gildongmu.chat.exception.ChatRoomNotFoundException;
 import com.dduru.gildongmu.chat.repository.ChatMessageRepository;
 import com.dduru.gildongmu.chat.repository.ChatRoomMemberRepository;
 import com.dduru.gildongmu.chat.repository.ChatRoomRepository;
@@ -21,6 +24,8 @@ import com.dduru.gildongmu.chat.system.ChatSystemMessageFactory;
 import com.dduru.gildongmu.chat.validation.ChatTextValidator;
 import com.dduru.gildongmu.common.validation.S3ImageUrlValidator;
 import com.dduru.gildongmu.post.domain.Post;
+import com.dduru.gildongmu.journey.domain.JourneyPoll;
+import com.dduru.gildongmu.journey.dto.response.JourneyPollSummaryResponse;
 import com.dduru.gildongmu.profile.utils.ProfileImageResolver;
 import com.dduru.gildongmu.s3.enums.S3ImageDirectory;
 import com.dduru.gildongmu.user.domain.User;
@@ -61,6 +66,18 @@ public class ChatMessageSendService {
 
     public void publishUserInvited(ChatRoom room, long inviteeUserId, long actorUserId) {
         saveSystemMessageAndBroadcast(room, chatSystemMessageFactory.userInvited(inviteeUserId, actorUserId));
+    }
+
+    public void publishPoll(JourneyPoll poll, JourneyPollSummaryResponse publicSummary) {
+        ChatRoom room = chatRoomRepository.findByJourneyIdAndRoomType(poll.getJourney().getId(), ChatRoomType.GROUP)
+                .orElseThrow(ChatRoomNotFoundException::new);
+        validateRoomOpen(room);
+        ChatRoomMember senderMember = getSenderMember(poll.getAuthor().getId(), room.getId());
+        ChatMessage message = chatMessageRepository.saveAndFlush(ChatMessage.forPoll(room, poll));
+        senderMember.readUpTo(message);
+        eventPublisher.publishEvent(new ChatMessageCreatedEvent(room.getId(), message.getId()));
+        broadcastAfterCommit(ChatMessageBroadcastPayload.ofPollMessage(message, room.getContextPost(),
+                profileImageResolver, publicSummary), room.getId());
     }
 
     public void publishUserKicked(ChatRoom room, long targetUserId, long actorUserId) {
@@ -117,6 +134,7 @@ public class ChatMessageSendService {
                     ChatMessageConstants.MAX_IMAGE_URL_LENGTH
             );
             case SYSTEM -> throw new ChatSystemMessageSendAccessDeniedException();
+            case POLL -> throw new ChatPollMessageSendAccessDeniedException();
         };
     }
 

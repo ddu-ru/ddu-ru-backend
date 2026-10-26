@@ -22,6 +22,9 @@ import com.dduru.gildongmu.chat.repository.ChatRoomRepository;
 import com.dduru.gildongmu.chat.system.ChatSystemMessageFactory;
 import com.dduru.gildongmu.journey.domain.enums.JourneyMemberStatus;
 import com.dduru.gildongmu.journey.repository.JourneyMemberRepository;
+import com.dduru.gildongmu.journey.domain.JourneyPoll;
+import com.dduru.gildongmu.journey.dto.response.JourneyPollSummaryResponse;
+import com.dduru.gildongmu.journey.service.JourneyPollQueryService;
 import com.dduru.gildongmu.user.domain.User;
 import com.dduru.gildongmu.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -53,6 +56,7 @@ public class ChatMessageQueryService {
     private final JourneyMemberRepository journeyMemberRepository;
     private final UserRepository userRepository;
     private final ChatSystemMessageFactory chatSystemMessageFactory;
+    private final JourneyPollQueryService journeyPollQueryService;
 
     public ChatMessagesResponse retrieveMessages(Long userId, Long roomId, ChatMessageRetrieveRequest request) {
         ChatMessageRetrieveRequest normalizedRequest = normalizeRequest(request);
@@ -82,11 +86,12 @@ public class ChatMessageQueryService {
         Map<Long, ChatSystemMessagePayload> systemPayloads = deserializeSystemPayloads(orderedMessages);
         Map<Long, User> systemUsers = loadUsersForSystemMessages(systemPayloads.values());
         Map<Long, Integer> unreadCounts = calculateUnreadCounts(roomId, orderedMessages);
+        Map<Long, JourneyPollSummaryResponse> polls = loadPolls(orderedMessages, userId);
 
         return new ChatMessagesResponse(
                 toRoomInfo(room, userId),
                 new ChatMessagePageResponse(size, hasNext, nextCursor),
-                toMessageResponses(orderedMessages, room, userId, systemPayloads, systemUsers, unreadCounts)
+                toMessageResponses(orderedMessages, room, userId, systemPayloads, systemUsers, unreadCounts, polls)
         );
     }
 
@@ -95,6 +100,12 @@ public class ChatMessageQueryService {
             return new ChatMessageRetrieveRequest(null, null);
         }
         return request;
+    }
+
+    private Map<Long, JourneyPollSummaryResponse> loadPolls(List<ChatMessage> messages, Long userId) {
+        List<JourneyPoll> polls = messages.stream().filter(message -> message.getMessageType() == ChatMessageType.POLL)
+                .map(ChatMessage::getPoll).toList();
+        return polls.isEmpty() ? Map.of() : journeyPollQueryService.buildSummaries(polls, userId);
     }
 
     private static void validateRoomRetrievable(ChatRoom room) {
@@ -280,7 +291,8 @@ public class ChatMessageQueryService {
             Long currentUserId,
             Map<Long, ChatSystemMessagePayload> systemPayloads,
             Map<Long, User> systemUsers,
-            Map<Long, Integer> unreadCounts
+            Map<Long, Integer> unreadCounts,
+            Map<Long, JourneyPollSummaryResponse> polls
     ) {
         Long hostUserId = room.getContextPost().getUser().getId();
         return messages.stream()
@@ -290,7 +302,8 @@ public class ChatMessageQueryService {
                         currentUserId,
                         systemPayloads,
                         systemUsers,
-                        unreadCounts
+                        unreadCounts,
+                        polls
                 ))
                 .toList();
     }
@@ -301,9 +314,12 @@ public class ChatMessageQueryService {
             Long currentUserId,
             Map<Long, ChatSystemMessagePayload> systemPayloads,
             Map<Long, User> systemUsers,
-            Map<Long, Integer> unreadCounts
+            Map<Long, Integer> unreadCounts,
+            Map<Long, JourneyPollSummaryResponse> polls
     ) {
         return switch (message.getMessageType()) {
+            case POLL -> ChatMessageItemResponse.forPoll(message, hostUserId, currentUserId,
+                    unreadCounts.get(message.getId()), polls.get(message.getPoll().getId()));
             case TEXT -> ChatMessageItemResponse.forText(
                     message,
                     hostUserId,

@@ -2,6 +2,7 @@ package com.dduru.gildongmu.chat.dto.ws;
 
 import com.dduru.gildongmu.chat.domain.enums.ChatMessageType;
 import com.dduru.gildongmu.chat.exception.ChatSystemMessageSendAccessDeniedException;
+import com.dduru.gildongmu.chat.exception.ChatPollMessageSendAccessDeniedException;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -20,6 +21,7 @@ public record ChatUserMessagePayload(
             case TEXT -> new ChatUserMessagePayload(content, null);
             case IMAGE -> new ChatUserMessagePayload(null, content);
             case SYSTEM -> throw new ChatSystemMessageSendAccessDeniedException();
+            case POLL -> throw new ChatPollMessageSendAccessDeniedException();
         };
     }
 }

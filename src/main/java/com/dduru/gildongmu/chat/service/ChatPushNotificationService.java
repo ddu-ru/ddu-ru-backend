@@ -43,12 +43,14 @@ public class ChatPushNotificationService {
             return switch (messageType) {
                 case TEXT -> truncate(content);
                 case IMAGE -> "사진을 보냈습니다.";
+                case POLL -> "투표가 등록되었습니다: " + truncate(content);
                 default -> "메시지를 보냈습니다.";
             };
         }
         return switch (messageType) {
             case TEXT -> senderNickname + ": " + truncate(content);
             case IMAGE -> senderNickname + ": 사진을 보냈습니다.";
+            case POLL -> senderNickname + ": 투표가 등록되었습니다: " + truncate(content);
             default -> senderNickname + ": 메시지를 보냈습니다.";
         };
     }

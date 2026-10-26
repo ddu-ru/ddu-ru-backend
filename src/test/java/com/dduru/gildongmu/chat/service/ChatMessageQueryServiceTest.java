@@ -19,6 +19,10 @@ import com.dduru.gildongmu.chat.system.ChatSystemMessageFactory;
 import com.dduru.gildongmu.journey.domain.Journey;
 import com.dduru.gildongmu.journey.domain.enums.JourneyMemberStatus;
 import com.dduru.gildongmu.journey.repository.JourneyMemberRepository;
+import com.dduru.gildongmu.journey.service.JourneyPollQueryService;
+import com.dduru.gildongmu.journey.domain.JourneyPoll;
+import com.dduru.gildongmu.journey.dto.response.JourneyPollSummaryResponse;
+import com.dduru.gildongmu.journey.dto.response.JourneyPollOptionResponse;
 import com.dduru.gildongmu.post.domain.Post;
 import com.dduru.gildongmu.profile.domain.Profile;
 import com.dduru.gildongmu.profile.domain.enums.Gender;
@@ -72,6 +76,9 @@ class ChatMessageQueryServiceTest {
     @Mock
     private ChatSystemMessageFactory chatSystemMessageFactory;
 
+    @Mock
+    private JourneyPollQueryService journeyPollQueryService;
+
     private ChatMessageQueryService chatMessageQueryService;
 
     @BeforeEach
@@ -82,13 +89,46 @@ class ChatMessageQueryServiceTest {
                 chatMessageRepository,
                 journeyMemberRepository,
                 userRepository,
-                chatSystemMessageFactory
+                chatSystemMessageFactory,
+                journeyPollQueryService
         );
     }
 
     @Nested
     @DisplayName("메시지 조회")
     class RetrieveMessages {
+
+        @Test
+        void retrievesPollCardWithLatestCountsAndOwnSelections() {
+            LocalDateTime joinedAt = LocalDateTime.of(2026, 5, 9, 9, 0);
+            User host = createUser(10L, "host", "hostNick");
+            Journey journey = createJourney(30L, createPost(1L, host, "Poll trip"), "Poll trip");
+            ChatRoom room = createGroupRoom(200L, journey, ChatRoomStatus.ACTIVE);
+            ChatRoomMember member = createMember(room, host, ChatMemberRole.HOST, joinedAt);
+            JourneyPoll poll = JourneyPoll.create(journey, host, "Dinner", true, true, false,
+                    joinedAt.plusDays(1), joinedAt);
+            ReflectionTestUtils.setField(poll, "id", 5L);
+            ChatMessage message = ChatMessage.forPoll(room, poll);
+            ReflectionTestUtils.setField(message, "id", 441L);
+            ReflectionTestUtils.setField(message, "createdAt", joinedAt.plusMinutes(1));
+            JourneyPollSummaryResponse summary = JourneyPollSummaryResponse.from(poll, joinedAt, 2,
+                    List.of(new JourneyPollOptionResponse(11L, "A", 2)), List.of(11L));
+            when(chatRoomRepository.getByIdWithContextOrThrow(200L)).thenReturn(room);
+            when(chatRoomMemberRepository.findByRoomIdAndUserId(200L, 10L)).thenReturn(Optional.of(member));
+            when(journeyMemberRepository.existsByJourneyIdAndUserIdAndStatus(30L, 10L, JourneyMemberStatus.ACTIVE)).thenReturn(true);
+            when(chatMessageRepository.findVisibleMessages(eq(200L), eq(null), eq(joinedAt), any(Pageable.class)))
+                    .thenReturn(List.of(message));
+            when(chatRoomMemberRepository.findByRoomIdWithLastReadMessage(200L)).thenReturn(List.of(member));
+            when(journeyPollQueryService.buildSummaries(List.of(poll), 10L)).thenReturn(java.util.Map.of(5L, summary));
+
+            ChatMessagesResponse response = chatMessageQueryService.retrieveMessages(10L, 200L, new ChatMessageRetrieveRequest(null, null));
+
+            assertThat(response.messages()).hasSize(1);
+            assertThat(response.messages().get(0).poll()).isEqualTo(summary);
+            assertThat(response.messages().get(0).unreadCount()).isZero();
+            assertThat(response.messages().get(0).content()).isNull();
+            assertThat(response.messages().get(0).systemMessage()).isNull();
+        }
 
         @Test
         @DisplayName("1:1 방 최초 조회는 최신 메시지를 오래된 순으로 반환하고 다음 커서를 제공한다")
