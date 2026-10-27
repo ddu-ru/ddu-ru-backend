@@ -21,7 +21,7 @@ class AvatarMatcherTest {
             "6.0, 4.0, 4.0, 4.0, TTUR_MUDI",
             "6.0, 4.0, 6.0, 4.0, TTUR_SODAM",
             "6.0, 4.0, 4.0, 6.0, TTUR_SWEET",
-            "6.0, 4.0, 6.0, 6.0, TTUR_BANJJAK",
+            "6.0, 4.0, 6.0, 6.0, TTUR_DUDU",
             "4.0, 6.0, 4.0, 4.0, TTUR_SPARK",
             "4.0, 6.0, 6.0, 4.0, TTUR_LUNA",
             "4.0, 6.0, 4.0, 6.0, TTUR_GLIM",

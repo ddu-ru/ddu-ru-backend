@@ -22,7 +22,7 @@ public class AvatarMatcher {
             if (!isSocial && !isFlex) return AvatarType.TTUR_MUDI;
             if (!isSocial) return AvatarType.TTUR_SODAM;
             if (!isFlex) return AvatarType.TTUR_SWEET;
-            return AvatarType.TTUR_BANJJAK;
+            return AvatarType.TTUR_DUDU;
         }
 
         if (!isAdventurous && !isSocial && !isFlex) return AvatarType.TTUR_SPARK;
