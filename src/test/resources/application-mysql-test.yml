@@ -1,0 +1,20 @@
+spring:
+  datasource:
+    hikari:
+      maximum-pool-size: 10
+      connection-timeout: 30000
+  flyway:
+    enabled: true
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+        use_sql_comments: false
+
+logging:
+  level:
+    org.hibernate.SQL: info
+    org.hibernate.type.descriptor.sql.BasicBinder: info
