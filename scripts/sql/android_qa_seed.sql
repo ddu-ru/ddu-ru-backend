@@ -97,7 +97,7 @@ SELECT 'profile-assets-ready', IF(
      FROM avatar_profiles
      WHERE avatar_type IN (
          'TTUR_POGUN','TTUR_POSEUL','TTUR_TTORANG','TTUR_DASOM',
-         'TTUR_MUDI','TTUR_SODAM','TTUR_SWEET','TTUR_BANJJAK',
+         'TTUR_MUDI','TTUR_SODAM','TTUR_SWEET','TTUR_DUDU',
          'TTUR_SPARK','TTUR_LUNA','TTUR_GLIM','TTUR_HARAM',
          'TTUR_MALLANG','TTUR_BONGBONG','TTUR_BEOMI','TTUR_MARU'
      )) = 16
@@ -146,7 +146,7 @@ FROM qa350_users qu
 JOIN avatar_profiles ap
   ON ap.avatar_type = ELT(1 + MOD(qu.seq - 1, 16),
       'TTUR_POGUN','TTUR_POSEUL','TTUR_TTORANG','TTUR_DASOM',
-      'TTUR_MUDI','TTUR_SODAM','TTUR_SWEET','TTUR_BANJJAK',
+      'TTUR_MUDI','TTUR_SODAM','TTUR_SWEET','TTUR_DUDU',
       'TTUR_SPARK','TTUR_LUNA','TTUR_GLIM','TTUR_HARAM',
       'TTUR_MALLANG','TTUR_BONGBONG','TTUR_BEOMI','TTUR_MARU')
 JOIN bg_colors bc ON bc.display_order = 1 + MOD(qu.seq - 1, 15)
@@ -225,7 +225,7 @@ SELECT
     user_id,
     ELT(1 + MOD(seq - 1, 16),
         'TTUR_POGUN','TTUR_POSEUL','TTUR_TTORANG','TTUR_DASOM',
-        'TTUR_MUDI','TTUR_SODAM','TTUR_SWEET','TTUR_BANJJAK',
+        'TTUR_MUDI','TTUR_SODAM','TTUR_SWEET','TTUR_DUDU',
         'TTUR_SPARK','TTUR_LUNA','TTUR_GLIM','TTUR_HARAM',
         'TTUR_MALLANG','TTUR_BONGBONG','TTUR_BEOMI','TTUR_MARU'),
     1.0 + MOD(seq, 9) / 2.0,
