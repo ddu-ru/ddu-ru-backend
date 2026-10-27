@@ -52,6 +52,8 @@ class FlywayBaselineMigrationTest {
                     .isEqualTo(1);
             assertThat(singleInt(statement, "SELECT COUNT(*) FROM flyway_schema_history WHERE version = '33' AND success = 1"))
                     .isEqualTo(1);
+            assertThat(singleInt(statement, "SELECT COUNT(*) FROM flyway_schema_history WHERE version = '35' AND type = 'SQL' AND success = 1"))
+                    .isEqualTo(1);
             assertThat(singleInt(statement, "SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'super_host_tickets' AND index_name = 'uk_super_host_tickets_user_source'"))
                     .isZero();
             assertThat(singleInt(statement, "SELECT COUNT(*) FROM super_host_tickets WHERE user_id = 999999 AND source = 'ONBOARDING_SURVEY'"))
@@ -61,6 +63,10 @@ class FlywayBaselineMigrationTest {
             assertThat(singleInt(statement, "SELECT COUNT(*) FROM bg_colors")).isGreaterThanOrEqualTo(15);
             assertThat(singleInt(statement, "SELECT COUNT(*) FROM destinations")).isEqualTo(54);
             assertThat(singleInt(statement, "SELECT COUNT(*) FROM avatar_profiles")).isGreaterThanOrEqualTo(16);
+            assertThat(singleInt(statement, "SELECT COUNT(*) FROM avatar_profiles WHERE avatar_type = 'TTUR_DUDU' AND display_name = '두두' AND image_url LIKE '%/avatar/dudu.png'"))
+                    .isEqualTo(1);
+            assertThat(singleInt(statement, "SELECT COUNT(*) FROM avatar_profiles WHERE image_url LIKE '%/avatar/ttur-%'"))
+                    .isZero();
             assertThat(singleInt(statement, "SELECT COUNT(*) FROM survey_questions")).isGreaterThanOrEqualTo(14);
             assertThat(singleInt(statement, "SELECT COUNT(*) FROM survey_question_options")).isGreaterThanOrEqualTo(35);
         }
