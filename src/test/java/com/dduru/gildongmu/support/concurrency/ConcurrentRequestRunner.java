@@ -5,8 +5,11 @@ import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Predicate;
 
 public final class ConcurrentRequestRunner {
@@ -41,19 +44,14 @@ public final class ConcurrentRequestRunner {
             }
             start.countDown();
 
-            return futures.stream().map(future -> {
-                try {
-                    return future.get(COMPLETION_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
-                } catch (Exception e) {
-                    throw new AssertionError("동시 요청 완료 시간 초과 또는 실행기 실패", e);
-                }
-            }).toList();
+            return futures.stream().map(ConcurrentRequestRunner::awaitResult).toList();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new AssertionError("동시 요청 시작 대기 중 인터럽트", e);
         } finally {
             start.countDown();
             executor.shutdownNow();
+            awaitTermination(executor);
         }
     }
 
@@ -81,7 +79,7 @@ public final class ConcurrentRequestRunner {
         try {
             request.run();
             return result(ConcurrentRequestStatus.SUCCESS, startedAt, null);
-        } catch (Throwable failure) {
+        } catch (Exception failure) {
             if (hasSqlErrorCode(failure, DEADLOCK_ERROR_CODE)) {
                 return result(ConcurrentRequestStatus.DEADLOCK, startedAt, failure);
             }
@@ -92,6 +90,42 @@ public final class ConcurrentRequestRunner {
                 return result(ConcurrentRequestStatus.EXPECTED_BUSINESS_CONFLICT, startedAt, failure);
             }
             return result(ConcurrentRequestStatus.UNEXPECTED_FAILURE, startedAt, failure);
+        }
+    }
+
+    public static boolean hasCause(Throwable failure, Class<? extends Throwable> type) {
+        Throwable current = failure;
+        while (current != null) {
+            if (type.isInstance(current)) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
+    }
+
+    private static ConcurrentRequestResult awaitResult(Future<ConcurrentRequestResult> future) {
+        try {
+            return future.get(COMPLETION_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
+        } catch (TimeoutException e) {
+            future.cancel(true);
+            throw new AssertionError("동시 요청 완료 시간 초과", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError("동시 요청 완료 대기 중 인터럽트", e);
+        } catch (Exception e) {
+            throw new AssertionError("동시 요청 실행기 실패", e);
+        }
+    }
+
+    private static void awaitTermination(ExecutorService executor) {
+        try {
+            if (!executor.awaitTermination(START_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)) {
+                throw new AssertionError("동시 요청 실행기 종료 시간 초과");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError("동시 요청 실행기 종료 대기 중 인터럽트", e);
         }
     }
 
