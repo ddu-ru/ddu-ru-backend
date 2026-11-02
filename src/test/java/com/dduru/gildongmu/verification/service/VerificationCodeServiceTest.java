@@ -1,19 +1,21 @@
 package com.dduru.gildongmu.verification.service;
 
+import com.dduru.gildongmu.common.exception.InternalServerException;
 import com.dduru.gildongmu.common.time.TimeProvider;
-import com.dduru.gildongmu.verification.dto.VerificationData;
 import com.dduru.gildongmu.verification.exception.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.*;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 
-import java.time.Duration;
-import java.util.Collections;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
@@ -21,81 +23,51 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class VerificationCodeServiceTest {
-
-    @Mock
-    private RedisTemplate<String, String> redisTemplate;
-    @Mock
-    private ValueOperations<String, String> valueOperations;
-    @Spy
-    private ObjectMapper objectMapper = new ObjectMapper();
-    @Mock
-    private TimeProvider timeProvider;
-
-    @InjectMocks
-    private VerificationCodeService verificationCodeService;
+    @Mock private RedisTemplate<String, String> redisTemplate;
+    @Mock private ValueOperations<String, String> valueOperations;
+    @Mock private ObjectMapper objectMapper;
+    @Mock private TimeProvider timeProvider;
+    @InjectMocks private VerificationCodeService service;
 
     @BeforeEach
     void setUp() {
+        service.init();
+    }
+
+    @Test
+    void resendLimitRollsBackDailyCount() {
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        verificationCodeService.init();
-    }
-
-    @Test
-    void 인증생성_재발송제한이면_예외발생하고_일일한도롤백() {
-        // given : 일일 한도는 통과하지만 재발송 키가 존재
-        when(redisTemplate.execute(any(), eq(Collections.singletonList("sms:daily:01011112222")), any(), any()))
-                .thenReturn(1L);
+        when(redisTemplate.execute(any(), eq(List.of("sms:daily:01011112222")), any(), any())).thenReturn(1L);
         when(valueOperations.get("sms:resend:01011112222")).thenReturn("1");
-
-        // when & then
-        assertThatThrownBy(() -> verificationCodeService.createVerification("01011112222"))
+        assertThatThrownBy(() -> service.createVerification("01011112222"))
                 .isInstanceOf(ResendLimitExceededException.class);
-        verify(valueOperations).decrement("sms:daily:01011112222"); // rollback
+        verify(valueOperations).decrement("sms:daily:01011112222");
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "1,com.dduru.gildongmu.verification.exception.VerificationNotFoundException",
+            "2,com.dduru.gildongmu.verification.exception.AlreadyVerifiedException",
+            "3,com.dduru.gildongmu.verification.exception.InvalidVerificationCodeException",
+            "4,com.dduru.gildongmu.verification.exception.VerificationAttemptsExceededException",
+            "5,com.dduru.gildongmu.common.exception.InternalServerException"
+    })
+    void mapsAtomicVerificationResultToExistingException(long result, Class<? extends Throwable> exception) {
+        when(redisTemplate.execute(any(), eq(List.of("sms:auth:01011112222")), eq("123456"), eq("5"), eq("600000")))
+                .thenReturn(result);
+        assertThatThrownBy(() -> service.verifyCode("01011112222", "123456")).isInstanceOf(exception);
     }
 
     @Test
-    void 인증검증_코드불일치면_예외발생하고_횟수증가() throws Exception {
-        // given
-        String phone = "01022223333";
-        VerificationData data = VerificationData.builder()
-                .code("123456")
-                .phone(phone)
-                .count(0)
-                .status("PENDING")
-                .build();
-        String json = objectMapper.writeValueAsString(data);
-        when(valueOperations.get("sms:auth:" + phone)).thenReturn(json);
-
-        // when & then
-        assertThatThrownBy(() -> verificationCodeService.verifyCode(phone, "000000"))
-                .isInstanceOf(InvalidVerificationCodeException.class);
-
-        verify(valueOperations).set(eq("sms:auth:" + phone), contains("\"count\":1"), any(Duration.class));
+    void nullScriptResultDoesNotVerify() {
+        assertThatThrownBy(() -> service.verifyCode("01011112222", "123456"))
+                .isInstanceOf(InternalServerException.class);
     }
 
     @Test
-    void 인증검증_코드일치면_VERIFIED로_저장() throws Exception {
-        // given
-        String phone = "01033334444";
-        VerificationData data = VerificationData.builder()
-                .code("999999")
-                .phone(phone)
-                .count(2)
-                .status("PENDING")
-                .build();
-        String json = objectMapper.writeValueAsString(data);
-        when(valueOperations.get("sms:auth:" + phone)).thenReturn(json);
-
-        // when
-        verificationCodeService.verifyCode(phone, "999999");
-
-        // then
-        ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
-        verify(valueOperations).set(eq("sms:auth:" + phone), captor.capture(), eq(Duration.ofMinutes(10)));
-        String savedJson = captor.getValue();
-        verify(valueOperations, never()).decrement(anyString());
-        VerificationData saved = objectMapper.readValue(savedJson, VerificationData.class);
-        org.assertj.core.api.Assertions.assertThat(saved.status()).isEqualTo("VERIFIED");
-        org.assertj.core.api.Assertions.assertThat(saved.count()).isEqualTo(2);
+    void successfulScriptResultVerifiesWithoutAnotherWrite() {
+        when(redisTemplate.execute(any(), anyList(), any(), any(), any())).thenReturn(0L);
+        service.verifyCode("01011112222", "123456");
+        verify(redisTemplate, never()).opsForValue();
     }
 }
