@@ -28,6 +28,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -200,9 +202,10 @@ class SurveyServiceTest {
         assertThat(response.recordStyleType()).isEqualTo(RecordStyleType.A);
         assertThat(response.avatarLabel()).isEqualTo("뚜르 스윗-A");
         assertThat(response.lastTestedAt()).isEqualTo(TODAY);
-        assertThat(response.canRetake()).isFalse();
-        assertThat(response.nextRetakeAvailableDate()).isEqualTo(TODAY.plusDays(30));
-        assertThat(response.remainingRetakeDays()).isEqualTo(30);
+        assertThat(response.canRetake()).isTrue();
+        assertThat(response.nextRetakeAvailableDate()).isEqualTo(TODAY);
+        assertThat(response.remainingRetakeDays()).isZero();
+        assertThat(testSurvey.getLastRetestedAt()).isNull();
 
         verify(surveyRepository).save(any(Survey.class));
         verify(travelTendencyRepository).save(any(TravelTendency.class));
@@ -234,9 +237,15 @@ class SurveyServiceTest {
         verify(travelTendencyRepository, never()).save(any());
     }
 
-    @Test
-    @DisplayName("설문_결과_조회_성공")
-    void 설문_결과_조회_성공() {
+    @ParameterizedTest
+    @ValueSource(ints = {-1, 0, 29, 30, 31})
+    @DisplayName("설문 결과 조회 시 최초 테스트와 재테스트 경과일에 맞는 가능 여부 반환")
+    void 설문_결과_조회_성공(int daysSinceRetest) {
+        if (daysSinceRetest >= 0) {
+            testSurvey.recordRetest(TODAY.minusDays(daysSinceRetest));
+        } else {
+            ReflectionTestUtils.setField(testSurvey, "modifiedAt", TODAY.minusDays(1).atStartOfDay());
+        }
         TravelTendency travelTendency = TravelTendency.create(
                 testUser,
                 BigDecimal.valueOf(5.5),
@@ -271,10 +280,13 @@ class SurveyServiceTest {
         assertThat(response.avatarProfile().imageUrl()).isEqualTo("https://example.com/avatar-sweet.png");
         assertThat(response.recordStyleType()).isEqualTo(RecordStyleType.A);
         assertThat(response.avatarLabel()).isEqualTo("뚜르 스윗-A");
-        assertThat(response.lastTestedAt()).isEqualTo(TODAY.minusDays(30));
-        assertThat(response.canRetake()).isTrue();
-        assertThat(response.nextRetakeAvailableDate()).isEqualTo(TODAY);
-        assertThat(response.remainingRetakeDays()).isZero();
+        assertThat(response.lastTestedAt()).isEqualTo(
+                daysSinceRetest < 0 ? TODAY.minusDays(1) : TODAY.minusDays(daysSinceRetest));
+        assertThat(response.canRetake()).isEqualTo(daysSinceRetest < 0 || daysSinceRetest >= 30);
+        assertThat(response.nextRetakeAvailableDate()).isEqualTo(
+                daysSinceRetest < 0 ? TODAY : TODAY.minusDays(daysSinceRetest).plusDays(30));
+        assertThat(response.remainingRetakeDays()).isEqualTo(
+                daysSinceRetest < 0 ? 0 : Math.max(0, 30 - daysSinceRetest));
     }
 
     @Test
@@ -286,9 +298,15 @@ class SurveyServiceTest {
                 .isInstanceOf(SurveyResultNotFoundException.class);
     }
 
-    @Test
-    @DisplayName("마이페이지_성향테스트_수정_성공_온보딩_보상_미호출")
-    void 마이페이지_성향테스트_수정_성공_온보딩_보상_미호출() {
+    @ParameterizedTest
+    @ValueSource(ints = {-1, 30, 31})
+    @DisplayName("첫 재테스트는 즉시 허용하고 이후에는 30일 경과 시 수정 및 제한 갱신")
+    void 마이페이지_성향테스트_수정_성공_온보딩_보상_미호출(int daysSinceRetest) {
+        ReflectionTestUtils.setField(testSurvey, "createdAt", TODAY.atStartOfDay());
+        ReflectionTestUtils.setField(testSurvey, "modifiedAt", TODAY.atStartOfDay());
+        if (daysSinceRetest >= 0) {
+            testSurvey.recordRetest(TODAY.minusDays(daysSinceRetest));
+        }
         ParsedSurveyData parsedData = new ParsedSurveyData(
                 RhythmQuestion1.PLANNED_ROUTE,
                 RhythmQuestion2.PACK_EARLY,
@@ -307,7 +325,7 @@ class SurveyServiceTest {
         );
 
         when(userRepository.getByIdOrThrow(1L)).thenReturn(testUser);
-        when(surveyRepository.getByUserIdOrThrow(1L)).thenReturn(testSurvey);
+        when(surveyRepository.getByUserIdForUpdateOrThrow(1L)).thenReturn(testSurvey);
         when(surveyConverter.parseRequest(testRequest)).thenReturn(parsedData);
 
         TendencyScoreResponse scores = new TendencyScoreResponse(5.5, 4.5, 6.0, 7.0);
@@ -344,16 +362,21 @@ class SurveyServiceTest {
         assertThat(response.canRetake()).isFalse();
         assertThat(response.nextRetakeAvailableDate()).isEqualTo(TODAY.plusDays(30));
         assertThat(response.remainingRetakeDays()).isEqualTo(30);
+        assertThat(testSurvey.getLastRetestedAt()).isEqualTo(TODAY);
+        assertThatThrownBy(() -> surveyService.update(1L, testRequest))
+                .isInstanceOf(SurveyRetakeLockedException.class);
+        verify(surveyConverter, times(1)).parseRequest(testRequest);
         verify(onboardingService, never()).completeSurvey(any());
         verify(superHostService, never()).grantOnboardingRewardTicket(any());
     }
 
-    @Test
+    @ParameterizedTest
+    @ValueSource(ints = {0, 10, 29})
     @DisplayName("마이페이지_성향테스트_수정_30일_쿨다운_전이면_예외발생")
-    void 마이페이지_성향테스트_수정_30일_쿨다운_전이면_예외발생() {
-        ReflectionTestUtils.setField(testSurvey, "modifiedAt", TODAY.minusDays(10).atStartOfDay());
+    void 마이페이지_성향테스트_수정_30일_쿨다운_전이면_예외발생(int daysSinceRetest) {
+        testSurvey.recordRetest(TODAY.minusDays(daysSinceRetest));
         when(userRepository.getByIdOrThrow(1L)).thenReturn(testUser);
-        when(surveyRepository.getByUserIdOrThrow(1L)).thenReturn(testSurvey);
+        when(surveyRepository.getByUserIdForUpdateOrThrow(1L)).thenReturn(testSurvey);
 
         assertThatThrownBy(() -> surveyService.update(1L, testRequest))
                 .isInstanceOf(SurveyRetakeLockedException.class);
@@ -367,7 +390,7 @@ class SurveyServiceTest {
     @DisplayName("마이페이지_성향테스트_수정_설문없으면_예외발생")
     void 마이페이지_성향테스트_수정_설문없으면_예외발생() {
         when(userRepository.getByIdOrThrow(1L)).thenReturn(testUser);
-        when(surveyRepository.getByUserIdOrThrow(1L)).thenThrow(SurveyResultNotFoundException.class);
+        when(surveyRepository.getByUserIdForUpdateOrThrow(1L)).thenThrow(SurveyResultNotFoundException.class);
 
         assertThatThrownBy(() -> surveyService.update(1L, testRequest))
                 .isInstanceOf(SurveyResultNotFoundException.class);
