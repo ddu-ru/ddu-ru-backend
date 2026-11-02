@@ -1,10 +1,14 @@
 package com.dduru.gildongmu.verification.exception;
 
-import com.dduru.gildongmu.common.exception.BusinessException;
+import com.dduru.gildongmu.common.exception.RetryableBusinessException;
 import com.dduru.gildongmu.common.exception.ErrorCode;
 
-public class ResendLimitExceededException extends BusinessException {
+public class ResendLimitExceededException extends RetryableBusinessException {
     public ResendLimitExceededException() {
-        super(ErrorCode.TOO_MANY_REQUESTS);
+        this(null);
+    }
+
+    public ResendLimitExceededException(Long retryAfterSeconds) {
+        super(ErrorCode.TOO_MANY_REQUESTS, retryAfterSeconds);
     }
 }

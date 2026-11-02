@@ -14,14 +14,13 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 
-import jakarta.annotation.PostConstruct;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
@@ -45,40 +44,17 @@ public class VerificationCodeService {
     private static final String STATUS_PENDING = "PENDING";
     private static final SecureRandom random = new SecureRandom();
     
-    private DefaultRedisScript<Long> dailyLimitScript;
-    private final DefaultRedisScript<Long> verifyCodeScript = script("verify-code.lua");
-    private final DefaultRedisScript<Long> saveCodeScript = script("save-code.lua");
+    private final DefaultRedisScript<List> sendLimitsScript = script("check-send-limits.lua", List.class);
+    private final DefaultRedisScript<Long> resendLimitScript = script("set-resend-limit.lua", Long.class);
+    private final DefaultRedisScript<Long> verifyCodeScript = script("verify-code.lua", Long.class);
+    private final DefaultRedisScript<Long> rollbackSendScript = script("rollback-send.lua", Long.class);
+    private final DefaultRedisScript<Long> saveCodeScript = script("save-code.lua", Long.class);
 
-    private static DefaultRedisScript<Long> script(String name) {
-        DefaultRedisScript<Long> script = new DefaultRedisScript<>();
+    private static <T> DefaultRedisScript<T> script(String name, Class<T> resultType) {
+        DefaultRedisScript<T> script = new DefaultRedisScript<>();
         script.setLocation(new ClassPathResource("redis/verification/" + name));
-        script.setResultType(Long.class);
+        script.setResultType(resultType);
         return script;
-    }
-
-    /**
-     * 일별 발송 제한 카운터를 관리하는 Redis Lua Script
-     * KEYS[1]: Redis Key
-     * ARGV[1]: 최대 시도 횟수
-     * - count 증가 후 제한 초과 시: -1 반환
-     * - 정상 경우: 증가된 count 반환
-     */
-    @PostConstruct
-    public void init() {
-        String script = 
-            "local count = redis.call('INCR', KEYS[1])\n" +
-            "if count == 1 then\n" +
-            "    redis.call('EXPIRE', KEYS[1], ARGV[2])\n" +
-            "end\n" +
-            "if count > tonumber(ARGV[1]) then\n" +
-            "    redis.call('DECR', KEYS[1])\n" +
-            "    return -1\n" +
-            "end\n" +
-            "return count";
-        
-        dailyLimitScript = new DefaultRedisScript<>();
-        dailyLimitScript.setScriptText(script);
-        dailyLimitScript.setResultType(Long.class);
     }
 
     public VerificationCreateResult createVerification(String phoneNumber) {
@@ -93,12 +69,7 @@ public class VerificationCodeService {
     }
 
     private VerificationCreateResult createVerification(String phoneNumber, boolean useAdminCode, String adminCode) {
-        checkAndIncrementDailyLimit(phoneNumber);
-
-        if (!canResend(phoneNumber)) {
-            rollbackDailyLimit(phoneNumber);
-            throw new ResendLimitExceededException();
-        }
+        checkAndIncrementSendLimits(phoneNumber);
 
         String code = useAdminCode ? adminCode : generateCode();
         VerificationData data = createVerificationData(phoneNumber, code);
@@ -126,16 +97,15 @@ public class VerificationCodeService {
     }
 
     public void rollbackVerificationCreation(String phoneNumber) {
-        String authKey = REDIS_KEY_PREFIX + phoneNumber;
-        String dailyLimitKey = DAILY_LIMIT_KEY_PREFIX + phoneNumber;
-        
-        redisTemplate.delete(authKey);
-        redisTemplate.opsForValue().decrement(dailyLimitKey);
+        redisTemplate.execute(rollbackSendScript,
+                List.of(REDIS_KEY_PREFIX + phoneNumber, DAILY_LIMIT_KEY_PREFIX + phoneNumber));
     }
 
-    public void setResendLimit(String phoneNumber) {
-        String redisKey = RESEND_LIMIT_KEY_PREFIX + phoneNumber;
-        redisTemplate.opsForValue().set(redisKey, "1", RESEND_LIMIT_MINUTES, TimeUnit.MINUTES);
+    public OffsetDateTime setResendLimit(String phoneNumber) {
+        Long expiresAtMillis = redisTemplate.execute(resendLimitScript,
+                List.of(RESEND_LIMIT_KEY_PREFIX + phoneNumber),
+                String.valueOf(Duration.ofMinutes(RESEND_LIMIT_MINUTES).toMillis()));
+        return toResendAvailableAt(expiresAtMillis);
     }
 
     private VerificationData createVerificationData(String phoneNumber, String code) {
@@ -168,28 +138,32 @@ public class VerificationCodeService {
         return String.valueOf(code);
     }
 
-    private boolean canResend(String phoneNumber) {
-        String redisKey = RESEND_LIMIT_KEY_PREFIX + phoneNumber;
-        String value = redisTemplate.opsForValue().get(redisKey);
-        return value == null;
-    }
-
-    private void checkAndIncrementDailyLimit(String phoneNumber) {
-        String redisKey = DAILY_LIMIT_KEY_PREFIX + phoneNumber;
-        
-        List<String> keys = Collections.singletonList(redisKey);
-        Long result = redisTemplate.execute(dailyLimitScript, keys, 
-            String.valueOf(DAILY_SMS_LIMIT), 
-            String.valueOf(DAILY_LIMIT_TTL_SECONDS));
-
-        if (result < 0) {
-            throw new DailySmsLimitExceededException();
+    private void checkAndIncrementSendLimits(String phoneNumber) {
+        List<?> result = redisTemplate.execute(sendLimitsScript,
+                List.of(DAILY_LIMIT_KEY_PREFIX + phoneNumber, RESEND_LIMIT_KEY_PREFIX + phoneNumber),
+                String.valueOf(DAILY_SMS_LIMIT), String.valueOf(DAILY_LIMIT_TTL_SECONDS));
+        if (result == null || result.size() != 2 || !(result.get(0) instanceof Long status)
+                || !(result.get(1) instanceof Long)) {
+            throw new InternalServerException();
+        }
+        switch (status.intValue()) {
+            case 0 -> { }
+            case 1 -> throw new DailySmsLimitExceededException(toRetryAfterSeconds((Long) result.get(1)));
+            case 2 -> throw new ResendLimitExceededException(toRetryAfterSeconds((Long) result.get(1)));
+            default -> throw new InternalServerException();
         }
     }
 
-    private void rollbackDailyLimit(String phoneNumber) {
-        String dailyLimitKey = DAILY_LIMIT_KEY_PREFIX + phoneNumber;
-        redisTemplate.opsForValue().decrement(dailyLimitKey);
+    private OffsetDateTime toResendAvailableAt(Long expiresAtMillis) {
+        if (expiresAtMillis == null || expiresAtMillis <= 0) throw new InternalServerException();
+        return Instant.ofEpochMilli(expiresAtMillis).atZone(KoreaTime.ZONE_ID).toOffsetDateTime();
+    }
+
+    private long toRetryAfterSeconds(Long expiresAtMillis) {
+        if (expiresAtMillis == null || expiresAtMillis <= 0) throw new InternalServerException();
+        Duration remaining = Duration.between(timeProvider.instant(), Instant.ofEpochMilli(expiresAtMillis));
+        if (remaining.isNegative() || remaining.isZero()) return 0;
+        return remaining.getSeconds() + (remaining.getNano() > 0 ? 1 : 0);
     }
 
     public record VerificationCreateResult(String code, LocalDateTime expiresAt) {
