@@ -9,6 +9,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -27,6 +28,9 @@ public class Survey extends BaseTimeEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false, unique = true)
     private User user;
+
+    @Column(name = "last_retested_at")
+    private LocalDate lastRetestedAt;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "rhythm_q1", nullable = false, length = 64)
@@ -161,5 +165,9 @@ public class Survey extends BaseTimeEntity {
 
     public static int mainAxisMaxRaw() {
         return MAIN_AXIS_MAX_RAW;
+    }
+
+    public void recordRetest(LocalDate testedAt) {
+        this.lastRetestedAt = testedAt;
     }
 }

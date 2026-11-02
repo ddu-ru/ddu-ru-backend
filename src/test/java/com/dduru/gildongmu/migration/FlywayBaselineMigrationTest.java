@@ -56,6 +56,10 @@ class FlywayBaselineMigrationTest {
                     .isEqualTo(1);
             assertThat(singleInt(statement, "SELECT COUNT(*) FROM flyway_schema_history WHERE version IN ('36', '37') AND type = 'SQL' AND success = 1"))
                     .isEqualTo(2);
+            assertThat(singleInt(statement, "SELECT COUNT(*) FROM flyway_schema_history WHERE version = '38' AND type = 'SQL' AND success = 1"))
+                    .isEqualTo(1);
+            assertThat(singleInt(statement, "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'surveys' AND column_name = 'last_retested_at' AND data_type = 'date' AND is_nullable = 'YES'"))
+                    .isEqualTo(1);
             assertThat(singleInt(statement, "SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'super_host_tickets' AND index_name = 'uk_super_host_tickets_user_source'"))
                     .isZero();
             assertThat(singleInt(statement, "SELECT COUNT(*) FROM super_host_tickets WHERE user_id = 999999 AND source = 'ONBOARDING_SURVEY'"))
