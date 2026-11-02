@@ -55,7 +55,7 @@ public interface SurveyApiDocs {
 
     @Operation(
             summary = "설문 결과 수정",
-            description = "마이페이지에서 기존 설문 응답을 다시 제출합니다. 최근 테스트일 기준 30일 이후에만 수정할 수 있으며, 온보딩 완료 처리 및 보상 지급은 실행되지 않습니다.",
+            description = "마이페이지에서 기존 설문 응답을 다시 제출합니다. 가입 시 최초 테스트와 별개로 첫 재테스트는 즉시 1회 가능하며, 이후에는 마지막 수정일로부터 30일이 지난 날부터 수정할 수 있습니다. 온보딩 완료 처리 및 보상 지급은 실행되지 않습니다.",
             security = @SecurityRequirement(name = "JWT")
     )
     @ApiResponse(responseCode = "200", description = "수정 성공")
