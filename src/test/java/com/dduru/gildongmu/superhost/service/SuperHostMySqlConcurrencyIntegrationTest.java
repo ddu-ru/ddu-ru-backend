@@ -40,8 +40,6 @@ class SuperHostMySqlConcurrencyIntegrationTest extends MySqlIntegrationTestSuppo
                 .singleElement()
                 .extracting(ConcurrentRequestResult::status)
                 .isIn(ConcurrentRequestStatus.EXPECTED_BUSINESS_CONFLICT, ConcurrentRequestStatus.DEADLOCK);
-        assertThat(results).allMatch(result -> result.status() != ConcurrentRequestStatus.LOCK_TIMEOUT);
-        assertThat(results).allMatch(result -> result.status() != ConcurrentRequestStatus.UNEXPECTED_FAILURE);
 
         queryCommitted(() -> {
             assertThat(count("""

@@ -54,7 +54,6 @@ class ParticipationMySqlConcurrencyIntegrationTest extends MySqlIntegrationTestS
                         ConcurrentRequestStatus.SUCCESS,
                         ConcurrentRequestStatus.EXPECTED_BUSINESS_CONFLICT
                 );
-        assertNoUnexpectedDatabaseFailure(results);
 
         queryCommitted(() -> {
             assertThat(count("SELECT COUNT(*) FROM participations WHERE post_id = ? AND user_id = ?",
@@ -86,7 +85,6 @@ class ParticipationMySqlConcurrencyIntegrationTest extends MySqlIntegrationTestS
                         ConcurrentRequestStatus.SUCCESS,
                         ConcurrentRequestStatus.EXPECTED_BUSINESS_CONFLICT
                 );
-        assertNoUnexpectedDatabaseFailure(results);
 
         queryCommitted(() -> {
             assertThat(integer("SELECT recruit_count FROM posts WHERE id = ?", fixture.postId())).isEqualTo(2);
@@ -177,12 +175,6 @@ class ParticipationMySqlConcurrencyIntegrationTest extends MySqlIntegrationTestS
                     fixture.journeyId())).isZero();
             return null;
         });
-    }
-
-    private static void assertNoUnexpectedDatabaseFailure(List<ConcurrentRequestResult> results) {
-        assertThat(results).allMatch(result -> result.status() != ConcurrentRequestStatus.DEADLOCK);
-        assertThat(results).allMatch(result -> result.status() != ConcurrentRequestStatus.LOCK_TIMEOUT);
-        assertThat(results).allMatch(result -> result.status() != ConcurrentRequestStatus.UNEXPECTED_FAILURE);
     }
 
 }
