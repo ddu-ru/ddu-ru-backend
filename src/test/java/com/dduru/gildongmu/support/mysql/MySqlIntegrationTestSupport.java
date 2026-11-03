@@ -81,19 +81,6 @@ public abstract class MySqlIntegrationTestSupport {
         when(timeProvider.zoneId()).thenReturn(TEST_ZONE);
     }
 
-    protected <T> T committed(Supplier<T> work) {
-        TransactionTemplate transaction = new TransactionTemplate(transactionManager);
-        transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-        return transaction.execute(status -> work.get());
-    }
-
-    protected void committed(Runnable work) {
-        committed(() -> {
-            work.run();
-            return null;
-        });
-    }
-
     protected <T> T queryCommitted(Supplier<T> query) {
         TransactionTemplate transaction = new TransactionTemplate(transactionManager);
         transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
