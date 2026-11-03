@@ -1,9 +1,11 @@
 package com.dduru.gildongmu.chat.controller;
 
 import com.dduru.gildongmu.chat.dto.request.ChatMessageRetrieveRequest;
+import com.dduru.gildongmu.chat.dto.request.ChatNotificationSettingsRequest;
 import com.dduru.gildongmu.chat.dto.request.ChatReadRequest;
 import com.dduru.gildongmu.chat.dto.request.ChatRoomListRequest;
 import com.dduru.gildongmu.chat.dto.response.ChatMessagesResponse;
+import com.dduru.gildongmu.chat.dto.response.ChatNotificationSettingsResponse;
 import com.dduru.gildongmu.chat.dto.response.ChatReadResponse;
 import com.dduru.gildongmu.chat.dto.response.ChatRoomListResponse;
 import com.dduru.gildongmu.chat.dto.response.PrivateChatRoomCreateResponse;
@@ -99,5 +101,34 @@ public interface ChatApiDocs {
     ResponseEntity<ApiResult<ChatRoomListResponse>> retrieveChatRooms(
             @Parameter(hidden = true) Long userId,
             @Valid @ParameterObject ChatRoomListRequest request
+    );
+
+    @Operation(
+            summary = "채팅방 알림 설정 조회",
+            description = "현재 사용자의 채팅방 메시지 푸시 수신 설정을 조회합니다. 기본값과 재참여 시 설정은 true입니다. " +
+                    "CLOSED 방도 현재 멤버는 조회할 수 있으며, 그룹방은 ACTIVE 여정 멤버여야 합니다. " +
+                    "enabled는 방별 저장값이며 전체 알림 설정이 꺼져 있으면 true여도 푸시는 발송되지 않습니다."
+    )
+    @ApiResponse(responseCode = "200", description = "조회 성공")
+    @ApiErrorResponses({ErrorCode.UNAUTHORIZED, ErrorCode.CHAT_ROOM_NOT_FOUND, ErrorCode.CHAT_ACCESS_DENIED})
+    ResponseEntity<ApiResult<ChatNotificationSettingsResponse>> retrieveNotificationSettings(
+            @Parameter(hidden = true) Long userId,
+            @Parameter(description = "채팅방 ID", required = true) Long chatRoomId
+    );
+
+    @Operation(
+            summary = "채팅방 알림 설정 변경",
+            description = "현재 사용자의 채팅방 메시지(TEXT, IMAGE, POLL) 푸시 수신 여부를 지정합니다. " +
+                    "같은 값으로 재요청해도 성공하며 CLOSED 방도 변경할 수 있습니다. 그룹방은 ACTIVE 여정 멤버여야 합니다. " +
+                    "메시지 수신, 미읽음 수, 여정 공지·일정 알림에는 영향을 주지 않습니다. " +
+                    "방별 설정을 켜도 전체 알림 설정이 꺼져 있으면 푸시는 발송되지 않습니다."
+    )
+    @ApiResponse(responseCode = "200", description = "변경 성공")
+    @ApiErrorResponses({ErrorCode.UNAUTHORIZED, ErrorCode.INVALID_INPUT_VALUE,
+            ErrorCode.CHAT_ROOM_NOT_FOUND, ErrorCode.CHAT_ACCESS_DENIED})
+    ResponseEntity<ApiResult<ChatNotificationSettingsResponse>> updateNotificationSettings(
+            @Parameter(hidden = true) Long userId,
+            @Parameter(description = "채팅방 ID", required = true) Long chatRoomId,
+            @Valid @RequestBody ChatNotificationSettingsRequest request
     );
 }
