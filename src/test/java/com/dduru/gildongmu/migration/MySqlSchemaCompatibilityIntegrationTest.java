@@ -27,6 +27,7 @@ class MySqlSchemaCompatibilityIntegrationTest extends MySqlIntegrationTestSuppor
         assertThat(version).startsWith("8.4.9");
         assertThat(isolation).isEqualToIgnoringCase("REPEATABLE-READ");
         assertThat(flyway.info().pending()).isEmpty();
-        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("34");
+        assertThat(flyway.info().current()).isNotNull();
+        assertThat(flyway.validateWithResult().validationSuccessful).isTrue();
     }
 }
