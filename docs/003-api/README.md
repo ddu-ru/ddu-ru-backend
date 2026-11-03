@@ -9,6 +9,7 @@ Swagger보다 상세한 설계 배경, 처리 흐름, 테스트 케이스가 필
 | [채팅 메시지 조회 API](./003-chat-message-retrieve.md) | 커서 기반 메시지 조회, roomInfo, unreadCount 설계 |
 | [채팅 읽음 처리 API](./004-chat-read-receipt.md) | lastReadMessageId 갱신, READ 이벤트, unreadCount 연동 설계 |
 | [FCM 앱 연동 가이드](./005-fcm-app-integration.md) | FCM 토큰 등록, 갱신, 삭제 클라이언트 연동 기준 |
+| [휴대폰 인증 앱 연동 가이드](./006-phone-verification.md) | 인증 만료, 재발송 시각·대기 시간과 앱 카운트다운 |
 
 ## 작성 기준
 

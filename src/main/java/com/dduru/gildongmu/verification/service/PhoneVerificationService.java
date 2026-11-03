@@ -12,6 +12,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.time.OffsetDateTime;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -31,9 +33,10 @@ public class PhoneVerificationService {
         VerificationCodeService.VerificationCreateResult result = 
                 verificationCodeService.createVerification(phoneNumber);
 
+        OffsetDateTime resendAvailableAt;
         try {
             sendVerificationSms(phoneNumber, result.code());
-            verificationCodeService.setResendLimit(phoneNumber);
+            resendAvailableAt = verificationCodeService.setResendLimit(phoneNumber);
         } catch (Exception e) {
             verificationCodeService.rollbackVerificationCreation(phoneNumber);
             log.error("Verification code 메서드 처리 실패", e);
@@ -42,6 +45,7 @@ public class PhoneVerificationService {
 
         return VerificationSendResponse.builder()
                 .expiresAt(result.expiresAt())
+                .resendAvailableAt(resendAvailableAt)
                 .build();
     }
 
@@ -62,10 +66,11 @@ public class PhoneVerificationService {
         VerificationCodeService.VerificationCreateResult result =
                 verificationCodeService.createVerificationWithAdminCode(phoneNumber, code);
 
-        verificationCodeService.setResendLimit(phoneNumber);
+        OffsetDateTime resendAvailableAt = verificationCodeService.setResendLimit(phoneNumber);
 
         return VerificationSendResponse.builder()
                 .expiresAt(result.expiresAt())
+                .resendAvailableAt(resendAvailableAt)
                 .build();
     }
 
