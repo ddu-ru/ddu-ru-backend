@@ -14,7 +14,7 @@
 | 안 읽은 수 조회 | `GET /api/v1/notifications/unread-count`, 전체 및 탭별 집계 |
 | 읽음 처리 | 단건 읽음, 전체 읽음 |
 | 전체 삭제 | `DELETE /api/v1/notifications`, `deleted_at` 소프트 삭제 |
-| 수신 설정 | `users.notification_enabled` 전체 on/off |
+| 수신 설정 | `users.notification_enabled` 전체 on/off, `chat_room_members.notification_enabled` 채팅방별 메시지 푸시 on/off |
 | FCM 토큰 | `user_fcm_tokens`, 사용자+디바이스 타입 기준 upsert |
 | FCM 푸시 | `FcmPushService` 비동기 발송 |
 | 여행 임박 알림 | `TripUpcomingScheduler`, `TripUpcomingNotificationService` |
@@ -62,6 +62,7 @@ FCM 데이터 payload는 아래 키를 사용합니다.
 현재 값은 `JOURNEY`, `JOURNEY_POST`, `SCHEDULE`, `MATCH`, `POST`, `CHAT_ROOM`입니다.
 
 사용자가 `notification_enabled=false`이면 인앱 알림은 저장하지만 FCM 푸시는 보내지 않습니다.
+채팅 메시지 푸시는 전체 설정과 방별 설정이 모두 ON인 경우만 대상이 된다. 방별 설정은 여정 공지·일정 등 일반 알림 발송에 적용하지 않는다.
 만료되었거나 영구적으로 유효하지 않은 FCM 토큰은 발송 실패 응답을 기준으로 삭제합니다.
 
 ---
