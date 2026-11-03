@@ -39,7 +39,7 @@ public class ChatMessagePushEventListener {
         Long senderId = message.getSender().getId();
         Long roomId = event.roomId();
 
-        List<Long> recipientIds = chatRoomMemberRepository.findUserIdsByRoomId(roomId)
+        List<Long> recipientIds = chatRoomMemberRepository.findNotificationEnabledUserIdsByRoomId(roomId)
                 .stream()
                 .filter(id -> !id.equals(senderId))
                 .toList();

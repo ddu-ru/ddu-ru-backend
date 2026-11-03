@@ -48,7 +48,8 @@ docs/
 │   ├── 002-chat-room-list-realtime.md
 │   ├── 003-chat-message-retrieve.md
 │   ├── 004-chat-read-receipt.md
-│   └── 005-fcm-app-integration.md
+│   ├── 005-fcm-app-integration.md
+│   └── 006-chat-notification-settings.md
 ├── 004-implementation/
 │   ├── 001-my-journey.md
 │   ├── 002-home-mate-recommendation.md
@@ -116,6 +117,7 @@ Swagger보다 상세한 API 계약과 클라이언트 연동 기준을 정리합
 엔드포인트, 요청/응답 필드, HTTP status, 에러 코드, 페이지네이션 응답, 앱/웹 클라이언트가 따라야 하는 호출 규칙을 이곳에 둡니다.
 
 - [API 설계 문서](./003-api/)
+- [채팅방 알림 설정 API](./003-api/006-chat-notification-settings.md)
 
 ### 004-implementation - 구현
 
