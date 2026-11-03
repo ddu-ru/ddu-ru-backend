@@ -71,7 +71,7 @@ public class SurveyService {
         AvatarProfileResponse avatarProfile = avatarProfileService.getProfile(avatarType);
         log.info("설문조사 제출 완료 - userId: {}, avatarType: {}", userId, avatarType);
         LocalDate lastTestedAt = timeProvider.today();
-        SurveyRetakeAvailability retakeAvailability = getRetakeAvailability(lastTestedAt);
+        SurveyRetakeAvailability retakeAvailability = getRetakeAvailability(survey, lastTestedAt);
         return SurveyResponse.of(
                 scores,
                 avatarType,
@@ -95,7 +95,7 @@ public class SurveyService {
                 .orElseThrow(SurveyResultNotFoundException::new);
         Survey survey = surveyRepository.getByUserIdOrThrow(userId);
         LocalDate lastTestedAt = getLastTestedAt(survey);
-        SurveyRetakeAvailability retakeAvailability = getRetakeAvailability(lastTestedAt);
+        SurveyRetakeAvailability retakeAvailability = getRetakeAvailability(survey, timeProvider.today());
         return SurveyResponse.from(
                 travelTendency,
                 survey.getRecordStyle().getStyleType(),
@@ -109,11 +109,13 @@ public class SurveyService {
 
     public SurveyResponse update(Long userId, SurveyRequest request) {
         User user = userRepository.getByIdOrThrow(userId);
-        Survey survey = surveyRepository.getByUserIdOrThrow(userId);
-        validateRetakeAvailable(survey);
+        Survey survey = surveyRepository.getByUserIdForUpdateOrThrow(userId);
+        LocalDate today = timeProvider.today();
+        validateRetakeAvailable(survey, today);
 
         ParsedSurveyData parsed = surveyConverter.parseRequest(request);
         updateSurvey(survey, parsed);
+        survey.recordRetest(today);
 
         TendencyScoreResponse scores = tendencyCalculator.calculate(survey);
         AvatarType avatarType = matchAvatarType(scores);
@@ -122,8 +124,8 @@ public class SurveyService {
         updateProfileAvatar(userId, avatarType);
 
         AvatarProfileResponse avatarProfile = avatarProfileService.getProfile(avatarType);
-        LocalDate lastTestedAt = timeProvider.today();
-        SurveyRetakeAvailability retakeAvailability = getRetakeAvailability(lastTestedAt);
+        LocalDate lastTestedAt = survey.getLastRetestedAt();
+        SurveyRetakeAvailability retakeAvailability = getRetakeAvailability(survey, today);
         return SurveyResponse.of(
                 scores,
                 avatarType,
@@ -196,17 +198,19 @@ public class SurveyService {
         return BigDecimal.valueOf(value).setScale(1, RoundingMode.HALF_UP);
     }
 
-    private void validateRetakeAvailable(Survey survey) {
-        if (!getRetakeAvailability(getLastTestedAt(survey)).canRetake()) {
+    private void validateRetakeAvailable(Survey survey, LocalDate today) {
+        if (!getRetakeAvailability(survey, today).canRetake()) {
             throw new SurveyRetakeLockedException();
         }
     }
 
     private LocalDate getLastTestedAt(Survey survey) {
-        return survey.getModifiedAt().toLocalDate();
+        return survey.getLastRetestedAt() != null
+                ? survey.getLastRetestedAt()
+                : survey.getModifiedAt().toLocalDate();
     }
 
-    private SurveyRetakeAvailability getRetakeAvailability(LocalDate lastTestedAt) {
-        return SurveyRetakeAvailability.of(lastTestedAt, timeProvider.today(), RETAKE_COOLDOWN_DAYS);
+    private SurveyRetakeAvailability getRetakeAvailability(Survey survey, LocalDate today) {
+        return SurveyRetakeAvailability.of(survey.getLastRetestedAt(), today, RETAKE_COOLDOWN_DAYS);
     }
 }

@@ -8,8 +8,11 @@ public record SurveyRetakeAvailability(
         LocalDate nextRetakeAvailableDate,
         long remainingRetakeDays
 ) {
-    public static SurveyRetakeAvailability of(LocalDate lastTestedAt, LocalDate today, int cooldownDays) {
-        LocalDate nextRetakeAvailableDate = lastTestedAt.plusDays(cooldownDays);
+    public static SurveyRetakeAvailability of(LocalDate lastRetestedAt, LocalDate today, int cooldownDays) {
+        if (lastRetestedAt == null) {
+            return new SurveyRetakeAvailability(true, today, 0);
+        }
+        LocalDate nextRetakeAvailableDate = lastRetestedAt.plusDays(cooldownDays);
         boolean canRetake = !today.isBefore(nextRetakeAvailableDate);
         long remainingRetakeDays = canRetake ? 0 : ChronoUnit.DAYS.between(today, nextRetakeAvailableDate);
         return new SurveyRetakeAvailability(canRetake, nextRetakeAvailableDate, remainingRetakeDays);

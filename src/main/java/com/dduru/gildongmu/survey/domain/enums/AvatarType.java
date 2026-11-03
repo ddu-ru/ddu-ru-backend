@@ -14,7 +14,7 @@ public enum AvatarType implements CodedEnum {
     TTUR_MUDI(5),
     TTUR_SODAM(6),
     TTUR_SWEET(7),
-    TTUR_BANJJAK(8),
+    TTUR_DUDU(8),
     TTUR_SPARK(9),
     TTUR_LUNA(10),
     TTUR_GLIM(11),
