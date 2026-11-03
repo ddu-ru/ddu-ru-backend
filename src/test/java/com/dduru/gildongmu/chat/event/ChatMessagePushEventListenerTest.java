@@ -17,6 +17,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -76,7 +78,7 @@ class ChatMessagePushEventListenerTest {
 
             listener.handle(new ChatMessageCreatedEvent(ROOM_ID, MESSAGE_ID));
 
-            verify(chatRoomMemberRepository, never()).findUserIdsByRoomId(any());
+            verify(chatRoomMemberRepository, never()).findNotificationEnabledUserIdsByRoomId(any());
         }
 
         @Test
@@ -84,7 +86,7 @@ class ChatMessagePushEventListenerTest {
         void skipsWhenNoRecipients() {
             ChatMessage message = createGroupMessage(ChatMessageType.TEXT, "안녕");
             when(chatMessageRepository.findByIdWithSenderAndRoom(MESSAGE_ID)).thenReturn(Optional.of(message));
-            when(chatRoomMemberRepository.findUserIdsByRoomId(ROOM_ID)).thenReturn(List.of(SENDER_ID));
+            when(chatRoomMemberRepository.findNotificationEnabledUserIdsByRoomId(ROOM_ID)).thenReturn(List.of(SENDER_ID));
 
             listener.handle(new ChatMessageCreatedEvent(ROOM_ID, MESSAGE_ID));
 
@@ -97,7 +99,7 @@ class ChatMessagePushEventListenerTest {
             Long recipientId = 2L;
             ChatMessage message = createGroupMessage(ChatMessageType.TEXT, "안녕");
             when(chatMessageRepository.findByIdWithSenderAndRoom(MESSAGE_ID)).thenReturn(Optional.of(message));
-            when(chatRoomMemberRepository.findUserIdsByRoomId(ROOM_ID)).thenReturn(List.of(SENDER_ID, recipientId));
+            when(chatRoomMemberRepository.findNotificationEnabledUserIdsByRoomId(ROOM_ID)).thenReturn(List.of(SENDER_ID, recipientId));
             when(chatOnlineStatusService.getOnlineUserIds(ROOM_ID)).thenReturn(Set.of(recipientId));
 
             listener.handle(new ChatMessageCreatedEvent(ROOM_ID, MESSAGE_ID));
@@ -111,7 +113,7 @@ class ChatMessagePushEventListenerTest {
             Long recipientId = 2L;
             ChatMessage message = createGroupMessage(ChatMessageType.TEXT, "안녕");
             when(chatMessageRepository.findByIdWithSenderAndRoom(MESSAGE_ID)).thenReturn(Optional.of(message));
-            when(chatRoomMemberRepository.findUserIdsByRoomId(ROOM_ID)).thenReturn(List.of(SENDER_ID, recipientId));
+            when(chatRoomMemberRepository.findNotificationEnabledUserIdsByRoomId(ROOM_ID)).thenReturn(List.of(SENDER_ID, recipientId));
             when(chatOnlineStatusService.getOnlineUserIds(ROOM_ID)).thenReturn(Set.of());
             when(userRepository.findEnabledUserIds(List.of(recipientId))).thenReturn(List.of(recipientId));
             when(chatPushNotificationService.canSendPush(ROOM_ID)).thenReturn(false);
@@ -127,7 +129,7 @@ class ChatMessagePushEventListenerTest {
             Long recipientId = 2L;
             ChatMessage message = createGroupMessage(ChatMessageType.TEXT, "안녕");
             when(chatMessageRepository.findByIdWithSenderAndRoom(MESSAGE_ID)).thenReturn(Optional.of(message));
-            when(chatRoomMemberRepository.findUserIdsByRoomId(ROOM_ID)).thenReturn(List.of(SENDER_ID, recipientId));
+            when(chatRoomMemberRepository.findNotificationEnabledUserIdsByRoomId(ROOM_ID)).thenReturn(List.of(SENDER_ID, recipientId));
             when(chatOnlineStatusService.getOnlineUserIds(ROOM_ID)).thenReturn(Set.of());
             when(userRepository.findEnabledUserIds(List.of(recipientId))).thenReturn(List.of());
 
@@ -192,7 +194,7 @@ class ChatMessagePushEventListenerTest {
             Long offlineId = 3L;
             ChatMessage message = createGroupMessage(ChatMessageType.TEXT, "ㅎㅇ");
             when(chatMessageRepository.findByIdWithSenderAndRoom(MESSAGE_ID)).thenReturn(Optional.of(message));
-            when(chatRoomMemberRepository.findUserIdsByRoomId(ROOM_ID))
+            when(chatRoomMemberRepository.findNotificationEnabledUserIdsByRoomId(ROOM_ID))
                     .thenReturn(List.of(SENDER_ID, onlineId, offlineId));
             when(chatOnlineStatusService.getOnlineUserIds(ROOM_ID)).thenReturn(Set.of(onlineId));
             when(chatPushNotificationService.canSendPush(ROOM_ID)).thenReturn(true);
@@ -207,12 +209,26 @@ class ChatMessagePushEventListenerTest {
 
         private void setupNormalSendMocks(ChatMessage message, Long recipientId) {
             when(chatMessageRepository.findByIdWithSenderAndRoom(MESSAGE_ID)).thenReturn(Optional.of(message));
-            when(chatRoomMemberRepository.findUserIdsByRoomId(ROOM_ID))
+            when(chatRoomMemberRepository.findNotificationEnabledUserIdsByRoomId(ROOM_ID))
                     .thenReturn(List.of(SENDER_ID, recipientId));
             when(chatOnlineStatusService.getOnlineUserIds(ROOM_ID)).thenReturn(Set.of());
             when(chatPushNotificationService.canSendPush(ROOM_ID)).thenReturn(true);
             when(userRepository.findEnabledUserIds(List.of(recipientId))).thenReturn(List.of(recipientId));
         }
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = ChatMessageType.class, names = {"TEXT", "IMAGE", "POLL"})
+    @DisplayName("방별 알림 ON 수신자가 없으면 모든 메시지 타입에서 쿨다운도 사용하지 않는다")
+    void skipsMutedRoomWithoutConsumingCooldown(ChatMessageType type) {
+        ChatMessage message = createGroupMessage(type, "메시지");
+        when(chatMessageRepository.findByIdWithSenderAndRoom(MESSAGE_ID))
+                .thenReturn(Optional.of(message));
+        when(chatRoomMemberRepository.findNotificationEnabledUserIdsByRoomId(ROOM_ID)).thenReturn(List.of());
+
+        listener.handle(new ChatMessageCreatedEvent(ROOM_ID, MESSAGE_ID));
+
+        verifyNoInteractions(chatOnlineStatusService, userRepository, chatPushNotificationService);
     }
 
     // ── 헬퍼 메서드 ──────────────────────────────────────────────────────────
