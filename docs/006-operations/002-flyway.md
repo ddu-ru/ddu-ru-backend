@@ -41,8 +41,7 @@
 2. 다음 버전으로 `V{next}__{description}.sql` 파일을 추가합니다. 예를 들어 현재 가장 큰 버전이 V32라면 V33을 추가합니다.
 3. MySQL 문법으로 작성합니다.
 4. 운영 데이터와 애플리케이션에 미치는 영향을 검토합니다.
-5. `FlywayBaselineMigrationTest`와 `MigrationVersionUniquenessTest`로 clean DB 적용 및 버전 충돌 여부를 확인합니다.
-6. PR에 스키마 변경 영향과 복구 방안을 작성합니다.
+5. PR에 스키마 변경 영향과 복구 방안을 작성합니다.
 
 적용 순서는 다음과 같습니다.
 
@@ -91,15 +90,12 @@ CD 배포에서는 GitHub Actions의 Repository Variable `FLYWAY_ENABLED` 값을
 ```gradle
 implementation 'org.flywaydb:flyway-core'
 implementation 'org.flywaydb:flyway-mysql'
-testImplementation 'org.testcontainers:junit-jupiter'
-testImplementation 'org.testcontainers:mysql'
 ```
 
 ---
 
-## 7. 테스트
+## 7. 테스트 범위
 
-- `FlywayBaselineMigrationTest`: MySQL 8 컨테이너의 빈 DB에 B32와 이후 V migration을 순서대로 적용하고, 미적용 migration과 기준 데이터를 확인합니다.
-- `MigrationVersionUniquenessTest`: DB 연결 없이 migration 버전 중복을 검사합니다.
-
-새 migration을 추가하면 두 테스트를 실행해 clean DB 적용과 버전 충돌 여부를 확인합니다.
+자동화 테스트는 서비스 동작과 JPA 저장·조회 검증을 중심으로 유지합니다.
+마이그레이션 SQL 직접 실행, 버전 중복, 개별 버전 적용 이력을 검사하는 전용 테스트는 추가하지 않습니다.
+일반 테스트는 H2와 JPA `create-drop`을 사용하므로 운영 Flyway SQL 적용 여부를 검증하지 않습니다.
