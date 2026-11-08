@@ -13,7 +13,8 @@ public enum NotificationType {
     SCHEDULE_UPDATED(NotificationCategory.JOURNEY, "일정 변경"),
     SCHEDULE_CANCELED(NotificationCategory.JOURNEY, "일정 취소"),
     POST_UPDATED(NotificationCategory.MATCH, "찜한 글 업데이트"),
-    TRIP_UPCOMING(NotificationCategory.JOURNEY, "여행 임박");
+    TRIP_UPCOMING(NotificationCategory.JOURNEY, "여행 임박"),
+    REPORT_REVIEWED(NotificationCategory.SYSTEM, "신고 처리 결과");
 
     private final NotificationCategory category;
     private final String title;

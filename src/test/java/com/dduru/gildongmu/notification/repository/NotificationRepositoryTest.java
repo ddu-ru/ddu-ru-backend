@@ -76,7 +76,11 @@ class NotificationRepositoryTest {
                 .containsExactlyInAnyOrder(NotificationType.JOURNEY_NOTICE, NotificationType.SCHEDULE_CREATED,
                         NotificationType.SCHEDULE_UPDATED, NotificationType.SCHEDULE_CANCELED, NotificationType.TRIP_UPCOMING);
         assertThat(UnreadCountResponse.from(notificationRepository.countUnreadByType(recipient.getId(), SINCE)))
-                .isEqualTo(new UnreadCountResponse(8, 3, 5));
+                .isEqualTo(new UnreadCountResponse(9, 3, 5));
+        assertThat(page(NotificationFilter.ALL, null, 20)).extracting(Notification::getType)
+                .contains(NotificationType.REPORT_REVIEWED);
+        assertThat(page(NotificationFilter.UNREAD, null, 20)).extracting(Notification::getType)
+                .contains(NotificationType.REPORT_REVIEWED);
     }
 
     @Test
