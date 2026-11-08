@@ -37,6 +37,7 @@
 | `ScheduleUpdatedEvent` | `SCHEDULE_UPDATED` | `SCHEDULE` | `scheduleId` |
 | `ScheduleCanceledEvent` | `SCHEDULE_CANCELED` | `SCHEDULE` | `scheduleId` |
 | `PostUpdatedEvent` | `POST_UPDATED` | `POST` | `postId` |
+| `ReportReviewedEvent` | `REPORT_REVIEWED` | `REPORT` | `reportId` |
 
 수신자 결정:
 
@@ -44,6 +45,7 @@
 - 매칭 승인: 신청자 1명
 - 여정 공지/일정: 여정 ACTIVE 멤버 중 행위자 제외
 - 모집글 수정: 해당 모집글을 좋아요한 사용자
+- 신고 처리: 신고자 1명. RESOLVED/REJECTED 상태 변경 시 발송하며, 관리자 메모와 상대방 정보는 포함하지 않습니다.
 
 ---
 
@@ -59,7 +61,9 @@ FCM 데이터 payload는 아래 키를 사용합니다.
 ```
 
 `resourceType` 값은 `ResourceType.payloadValue`를 사용합니다.
-현재 값은 `JOURNEY`, `JOURNEY_POST`, `SCHEDULE`, `MATCH`, `POST`, `CHAT_ROOM`입니다.
+현재 값은 `JOURNEY`, `JOURNEY_POST`, `SCHEDULE`, `MATCH`, `POST`, `CHAT_ROOM`, `REPORT`입니다.
+`REPORT` 클릭 시 `GET /api/v1/reports/{reportId}`로 본인의 처리 상태를 조회합니다.
+신고 결과는 SYSTEM 분류로 ALL/UNREAD에만 표시하며, 전체 미읽음 수에는 포함하지만 매칭/여정 카운트에는 포함하지 않습니다.
 
 사용자가 `notification_enabled=false`이면 인앱 알림은 저장하지만 FCM 푸시는 보내지 않습니다.
 채팅 메시지 푸시는 전체 설정과 방별 설정이 모두 ON인 경우만 대상이 된다. 방별 설정은 여정 공지·일정 등 일반 알림 발송에 적용하지 않는다.
