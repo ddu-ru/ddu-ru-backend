@@ -2,23 +2,25 @@ package com.dduru.gildongmu.verification.service;
 
 import com.dduru.gildongmu.common.exception.InternalServerException;
 import com.dduru.gildongmu.common.time.TimeProvider;
+import com.dduru.gildongmu.common.time.KoreaTime;
 import com.dduru.gildongmu.verification.dto.VerificationData;
 import com.dduru.gildongmu.verification.exception.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 
-import jakarta.annotation.PostConstruct;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.Collections;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
@@ -40,34 +42,19 @@ public class VerificationCodeService {
     private static final int RESEND_LIMIT_MINUTES = 1;
     private static final int DAILY_LIMIT_TTL_SECONDS = 24 * 60 * 60;
     private static final String STATUS_PENDING = "PENDING";
-    private static final String STATUS_VERIFIED = "VERIFIED";
     private static final SecureRandom random = new SecureRandom();
     
-    private DefaultRedisScript<Long> dailyLimitScript;
+    private final DefaultRedisScript<List> sendLimitsScript = script("check-send-limits.lua", List.class);
+    private final DefaultRedisScript<Long> resendLimitScript = script("set-resend-limit.lua", Long.class);
+    private final DefaultRedisScript<Long> verifyCodeScript = script("verify-code.lua", Long.class);
+    private final DefaultRedisScript<Long> rollbackSendScript = script("rollback-send.lua", Long.class);
+    private final DefaultRedisScript<Long> saveCodeScript = script("save-code.lua", Long.class);
 
-    /**
-     * 일별 발송 제한 카운터를 관리하는 Redis Lua Script
-     * KEYS[1]: Redis Key
-     * ARGV[1]: 최대 시도 횟수
-     * - count 증가 후 제한 초과 시: -1 반환
-     * - 정상 경우: 증가된 count 반환
-     */
-    @PostConstruct
-    public void init() {
-        String script = 
-            "local count = redis.call('INCR', KEYS[1])\n" +
-            "if count == 1 then\n" +
-            "    redis.call('EXPIRE', KEYS[1], ARGV[2])\n" +
-            "end\n" +
-            "if count > tonumber(ARGV[1]) then\n" +
-            "    redis.call('DECR', KEYS[1])\n" +
-            "    return -1\n" +
-            "end\n" +
-            "return count";
-        
-        dailyLimitScript = new DefaultRedisScript<>();
-        dailyLimitScript.setScriptText(script);
-        dailyLimitScript.setResultType(Long.class);
+    private static <T> DefaultRedisScript<T> script(String name, Class<T> resultType) {
+        DefaultRedisScript<T> script = new DefaultRedisScript<>();
+        script.setLocation(new ClassPathResource("redis/verification/" + name));
+        script.setResultType(resultType);
+        return script;
     }
 
     public VerificationCreateResult createVerification(String phoneNumber) {
@@ -82,46 +69,43 @@ public class VerificationCodeService {
     }
 
     private VerificationCreateResult createVerification(String phoneNumber, boolean useAdminCode, String adminCode) {
-        checkAndIncrementDailyLimit(phoneNumber);
-
-        if (!canResend(phoneNumber)) {
-            rollbackDailyLimit(phoneNumber);
-            throw new ResendLimitExceededException();
-        }
+        checkAndIncrementSendLimits(phoneNumber);
 
         String code = useAdminCode ? adminCode : generateCode();
         VerificationData data = createVerificationData(phoneNumber, code);
-        saveVerificationData(phoneNumber, data);
-
-        LocalDateTime expiresAt = timeProvider.now().plusMinutes(EXPIRATION_MINUTES);
+        LocalDateTime expiresAt = LocalDateTime.ofInstant(
+                timeProvider.instant().truncatedTo(ChronoUnit.MILLIS), KoreaTime.ZONE_ID)
+                .plusMinutes(EXPIRATION_MINUTES);
+        saveVerificationData(phoneNumber, data, expiresAt);
         
         return new VerificationCreateResult(code, expiresAt);
     }
 
     public void verifyCode(String phoneNumber, String inputCode) {
-        String redisKey = REDIS_KEY_PREFIX + phoneNumber;
-        VerificationData data = getVerificationDataFromRedis(redisKey);
-
-        validateVerificationStatus(data);
-
-        if (!data.code().equals(inputCode)) {
-            handleInvalidCode(redisKey, data);
+        Long result = redisTemplate.execute(verifyCodeScript, List.of(REDIS_KEY_PREFIX + phoneNumber),
+                inputCode, String.valueOf(MAX_VERIFICATION_ATTEMPTS),
+                String.valueOf(Duration.ofMinutes(VERIFIED_EXPIRATION_MINUTES).toMillis()));
+        if (result == null) throw new InternalServerException();
+        switch (result.intValue()) {
+            case 0 -> { }
+            case 1 -> throw new VerificationNotFoundException();
+            case 2 -> throw new AlreadyVerifiedException();
+            case 3 -> throw new InvalidVerificationCodeException();
+            case 4 -> throw new VerificationAttemptsExceededException();
+            default -> throw new InternalServerException();
         }
-
-        markAsVerified(redisKey, data);
     }
 
     public void rollbackVerificationCreation(String phoneNumber) {
-        String authKey = REDIS_KEY_PREFIX + phoneNumber;
-        String dailyLimitKey = DAILY_LIMIT_KEY_PREFIX + phoneNumber;
-        
-        redisTemplate.delete(authKey);
-        redisTemplate.opsForValue().decrement(dailyLimitKey);
+        redisTemplate.execute(rollbackSendScript,
+                List.of(REDIS_KEY_PREFIX + phoneNumber, DAILY_LIMIT_KEY_PREFIX + phoneNumber));
     }
 
-    public void setResendLimit(String phoneNumber) {
-        String redisKey = RESEND_LIMIT_KEY_PREFIX + phoneNumber;
-        redisTemplate.opsForValue().set(redisKey, "1", RESEND_LIMIT_MINUTES, TimeUnit.MINUTES);
+    public OffsetDateTime setResendLimit(String phoneNumber) {
+        Long expiresAtMillis = redisTemplate.execute(resendLimitScript,
+                List.of(RESEND_LIMIT_KEY_PREFIX + phoneNumber),
+                String.valueOf(Duration.ofMinutes(RESEND_LIMIT_MINUTES).toMillis()));
+        return toResendAvailableAt(expiresAtMillis);
     }
 
     private VerificationData createVerificationData(String phoneNumber, String code) {
@@ -133,83 +117,16 @@ public class VerificationCodeService {
                 .build();
     }
 
-    private void saveVerificationData(String phoneNumber, VerificationData data) {
+    private void saveVerificationData(String phoneNumber, VerificationData data, LocalDateTime expiresAt) {
         String redisKey = REDIS_KEY_PREFIX + phoneNumber;
         try {
             String jsonData = objectMapper.writeValueAsString(data);
-            redisTemplate.opsForValue().set(
-                    redisKey,
-                    jsonData,
-                    Duration.ofMinutes(EXPIRATION_MINUTES)
-            );
+            long expiresAtMillis = expiresAt.atZone(KoreaTime.ZONE_ID).toInstant().toEpochMilli();
+            Long result = redisTemplate.execute(saveCodeScript, List.of(redisKey),
+                    jsonData, String.valueOf(expiresAtMillis));
+            if (result == null || result != 1) throw new InternalServerException();
         } catch (JsonProcessingException e) {
             log.error("인증 데이터 저장 실패", e);
-            throw new InternalServerException();
-        }
-    }
-
-    private VerificationData getVerificationDataFromRedis(String redisKey) {
-        String jsonData = redisTemplate.opsForValue().get(redisKey);
-        if (jsonData == null) {
-            throw new VerificationNotFoundException();
-        }
-
-        try {
-            return objectMapper.readValue(jsonData, VerificationData.class);
-        } catch (JsonProcessingException e) {
-            log.error("인증 데이터 파싱 실패: redisKey={}", redisKey, e);
-            throw new VerificationNotFoundException();
-        }
-    }
-
-    private void validateVerificationStatus(VerificationData data) {
-        if (STATUS_VERIFIED.equals(data.status())) {
-            throw new AlreadyVerifiedException();
-        }
-    }
-
-    private void handleInvalidCode(String redisKey, VerificationData data) {
-        int newCount = data.count() + 1;
-        
-        if (newCount > MAX_VERIFICATION_ATTEMPTS) {
-            redisTemplate.delete(redisKey);
-            throw new VerificationAttemptsExceededException();
-        }
-        
-        incrementAttemptCount(redisKey, data);
-        throw new InvalidVerificationCodeException();
-    }
-
-    private void markAsVerified(String redisKey, VerificationData data) {
-        VerificationData verifiedData = VerificationData.builder()
-                .code(data.code())
-                .phone(data.phone())
-                .count(data.count())
-                .status(STATUS_VERIFIED)
-                .build();
-
-        try {
-            String verifiedJson = objectMapper.writeValueAsString(verifiedData);
-            redisTemplate.opsForValue().set(redisKey, verifiedJson, Duration.ofMinutes(VERIFIED_EXPIRATION_MINUTES));
-        } catch (JsonProcessingException e) {
-            log.error("인증 데이터 업데이트 실패", e);
-            throw new InternalServerException();
-        }
-    }
-
-    private void incrementAttemptCount(String redisKey, VerificationData data) {
-        VerificationData updatedData = VerificationData.builder()
-                .code(data.code())
-                .phone(data.phone())
-                .count(data.count() + 1)
-                .status(data.status())
-                .build();
-        
-        try {
-            String updatedJson = objectMapper.writeValueAsString(updatedData);
-            redisTemplate.opsForValue().set(redisKey, updatedJson, Duration.ofMinutes(EXPIRATION_MINUTES));
-        } catch (JsonProcessingException e) {
-            log.error("인증 데이터 업데이트 실패: redisKey={}", redisKey, e);
             throw new InternalServerException();
         }
     }
@@ -221,28 +138,32 @@ public class VerificationCodeService {
         return String.valueOf(code);
     }
 
-    private boolean canResend(String phoneNumber) {
-        String redisKey = RESEND_LIMIT_KEY_PREFIX + phoneNumber;
-        String value = redisTemplate.opsForValue().get(redisKey);
-        return value == null;
-    }
-
-    private void checkAndIncrementDailyLimit(String phoneNumber) {
-        String redisKey = DAILY_LIMIT_KEY_PREFIX + phoneNumber;
-        
-        List<String> keys = Collections.singletonList(redisKey);
-        Long result = redisTemplate.execute(dailyLimitScript, keys, 
-            String.valueOf(DAILY_SMS_LIMIT), 
-            String.valueOf(DAILY_LIMIT_TTL_SECONDS));
-
-        if (result < 0) {
-            throw new DailySmsLimitExceededException();
+    private void checkAndIncrementSendLimits(String phoneNumber) {
+        List<?> result = redisTemplate.execute(sendLimitsScript,
+                List.of(DAILY_LIMIT_KEY_PREFIX + phoneNumber, RESEND_LIMIT_KEY_PREFIX + phoneNumber),
+                String.valueOf(DAILY_SMS_LIMIT), String.valueOf(DAILY_LIMIT_TTL_SECONDS));
+        if (result == null || result.size() != 2 || !(result.get(0) instanceof Long status)
+                || !(result.get(1) instanceof Long)) {
+            throw new InternalServerException();
+        }
+        switch (status.intValue()) {
+            case 0 -> { }
+            case 1 -> throw new DailySmsLimitExceededException(toRetryAfterSeconds((Long) result.get(1)));
+            case 2 -> throw new ResendLimitExceededException(toRetryAfterSeconds((Long) result.get(1)));
+            default -> throw new InternalServerException();
         }
     }
 
-    private void rollbackDailyLimit(String phoneNumber) {
-        String dailyLimitKey = DAILY_LIMIT_KEY_PREFIX + phoneNumber;
-        redisTemplate.opsForValue().decrement(dailyLimitKey);
+    private OffsetDateTime toResendAvailableAt(Long expiresAtMillis) {
+        if (expiresAtMillis == null || expiresAtMillis <= 0) throw new InternalServerException();
+        return Instant.ofEpochMilli(expiresAtMillis).atZone(KoreaTime.ZONE_ID).toOffsetDateTime();
+    }
+
+    private long toRetryAfterSeconds(Long expiresAtMillis) {
+        if (expiresAtMillis == null || expiresAtMillis <= 0) throw new InternalServerException();
+        Duration remaining = Duration.between(timeProvider.instant(), Instant.ofEpochMilli(expiresAtMillis));
+        if (remaining.isNegative() || remaining.isZero()) return 0;
+        return remaining.getSeconds() + (remaining.getNano() > 0 ? 1 : 0);
     }
 
     public record VerificationCreateResult(String code, LocalDateTime expiresAt) {

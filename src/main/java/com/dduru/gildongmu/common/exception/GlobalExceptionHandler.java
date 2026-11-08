@@ -5,6 +5,7 @@ import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -29,7 +30,11 @@ public class GlobalExceptionHandler {
         ErrorCode errorCode = e.getErrorCode();
         log.warn("Business Exception: code={}, message={}", errorCode.name(), e.getMessage());
         ErrorResponse response = ErrorResponse.of(errorCode, e.getMessage());
-        return ResponseEntity.status(errorCode.getStatus()).body(response);
+        ResponseEntity.BodyBuilder builder = ResponseEntity.status(errorCode.getStatus());
+        if (e instanceof RetryableBusinessException retryable && retryable.getRetryAfterSeconds() != null) {
+            builder.header(HttpHeaders.RETRY_AFTER, String.valueOf(retryable.getRetryAfterSeconds()));
+        }
+        return builder.body(response);
     }
 
     @ExceptionHandler({MethodArgumentNotValidException.class, BindException.class})
