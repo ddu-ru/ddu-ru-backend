@@ -34,8 +34,11 @@ jobs:
       - name: 🐳 Set up Docker Compose
         run: docker compose up -d --wait
 
-      - name: 🔨 Build & test with Gradle
+      - name: 🔨 Build & H2 tests with Gradle
         run: ./gradlew clean build -Duser.language=ko -Duser.country=KR
+
+      - name: 🐬 MySQL 8.4 integration tests
+        run: ./gradlew mysqlIntegrationTest -Duser.language=ko -Duser.country=KR
 
       - name: 🛠️ Tear down Docker Compose
         if: always()

@@ -10,7 +10,7 @@
 
 | 날짜 | 제목 | 작성자 |
 |---|---|:---:|
-| TODO | TODO | TODO |
+| 2026-10-27 | [MySQL 동시성 정합성 검증](./2026-10-27-mysql-concurrency-verification.md) | shinheekim |
 
 ---
 

@@ -37,6 +37,8 @@ dependencies {
 	annotationProcessor 'org.projectlombok:lombok'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	testImplementation 'org.testcontainers:junit-jupiter'
+	testImplementation 'org.testcontainers:mysql'
 
 	// Health Check
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
@@ -74,6 +76,24 @@ dependencies {
 }
 
 tasks.named('test') {
-	useJUnitPlatform()
+	useJUnitPlatform {
+		excludeTags 'mysql-integration'
+	}
 	systemProperty 'spring.profiles.active', 'test'
+}
+
+tasks.register('mysqlIntegrationTest', Test) {
+	description = 'Runs MySQL 8.4 integration tests with Testcontainers.'
+	group = 'verification'
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
+	useJUnitPlatform {
+		includeTags 'mysql-integration'
+	}
+	testLogging {
+		events 'passed', 'skipped', 'failed'
+		exceptionFormat = 'full'
+	}
+	systemProperty 'spring.profiles.active', 'test,mysql-test'
+	shouldRunAfter tasks.named('test')
 }
