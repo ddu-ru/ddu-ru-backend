@@ -2,6 +2,7 @@ package com.dduru.gildongmu.migration;
 
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -12,11 +13,12 @@ import java.sql.Statement;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@Testcontainers(disabledWithoutDocker = true)
+@Tag("mysql-integration")
+@Testcontainers
 class FlywayBaselineMigrationTest {
 
     @Container
-    private static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.0")
+    private static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4.9")
             .withDatabaseName("dduru")
             .withUsername("dduru")
             .withPassword("dduru");
