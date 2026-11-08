@@ -13,6 +13,7 @@
 | 그룹 채팅방 | `GroupChatRoomService`, 여정 기준 방 생성/초대 |
 | 메시지 전송 | `ChatMessageSendService`, STOMP `/app/chat/rooms/{roomId}/messages` |
 | 메시지 조회 | `ChatMessageQueryService`, `GET /api/v1/chat-rooms/{chatRoomId}/messages` |
+| 사진·투표 모아보기 | `ChatMessageQueryService`, `GET /api/v1/chat-rooms/{chatRoomId}/images`, `/polls` |
 | 읽음 처리 | `ChatReadService`, `PATCH /api/v1/chat-rooms/{chatRoomId}/read` |
 | 채팅방 목록 | `ChatRoomListService`, `GET /api/v1/chat-rooms` |
 | 목록 실시간 갱신 | `ChatRoomListRealtimePublisher`, `/user/queue/chat-room-list` |
@@ -47,6 +48,63 @@
 DB 인덱스:
 
 - `idx_chat_messages_room_id_id` — `(room_id, id)` 메시지 커서 조회용
+
+---
+
+## 2.1. 채팅방 사진·투표 모아보기
+
+채팅방 메뉴의 미리보기와 모두보기에서 같은 API를 사용합니다. 별도 콘텐츠 테이블에 복사하지 않고 `ChatMessage`의 `IMAGE`, `POLL` 메시지를 조회합니다.
+
+| 화면 | 요청 예시 |
+|---|---|
+| 사진 미리보기 | `GET /api/v1/chat-rooms/{chatRoomId}/images?size=5` |
+| 투표 미리보기 | `GET /api/v1/chat-rooms/{chatRoomId}/polls?size=2` |
+| 사진 모두보기 | `GET /api/v1/chat-rooms/{chatRoomId}/images?size=20` |
+| 다음 페이지 | 해당 목록 API에 `cursor={nextCursor}&size=20` 전달 |
+
+- JWT 인증이 필요하며 현재 채팅방 참여자만 접근합니다. 그룹방은 ACTIVE 여정 참여자인지도 확인합니다.
+- 현재 참여 시각 이후 메시지만 포함합니다. 재참여 시에는 재참여 시각이 기준입니다.
+- CLOSED 방은 조회 가능하고 DELETED 방은 조회할 수 없습니다.
+- 메시지 ID 내림차순이며, `cursor`는 **투표 ID가 아닌 메시지 ID**입니다. 다른 방 또는 참여 이전 메시지 커서는 거부합니다.
+- 요청 `size`는 기본 20, 1~50입니다. 응답 `size`는 실제 반환 개수이며 `hasNext=false`이면 `nextCursor=null`입니다.
+- 사진 목록은 채팅에 올린 사진만 포함하며 여정 게시판 사진은 포함하지 않습니다.
+- 투표 목록은 현재 방의 POLL 메시지에 연결된 투표만 포함합니다. 진행 중·종료 투표 모두 반환하고 1:1 방은 빈 목록을 반환합니다.
+- `voterCount`는 선택지별 득표 합계가 아닌 투표 참여자 수입니다. 최신 상태와 참여자 수는 기존 여정 투표 집계를 사용합니다.
+- 상세 조회·투표·다시 투표하기는 응답의 `journeyId`, `pollId`로 기존 여정 투표 API에 연결합니다.
+- 모아보기 조회는 읽음 위치나 미읽음 수를 변경하지 않습니다.
+- 유형별 조회 인덱스: `idx_chat_messages_room_type_id` (`room_id`, `message_type`, `id`), `V41__chat_content_list_index.sql`.
+
+사진 응답 예시:
+
+```json
+{
+  "status": 200,
+  "data": {
+    "images": [
+      { "messageId": 120, "imageUrl": "https://example.com/photo.png", "createdAt": "2026-11-01T10:00:00" }
+    ],
+    "nextCursor": null,
+    "hasNext": false,
+    "size": 1
+  }
+}
+```
+
+투표 응답 예시:
+
+```json
+{
+  "status": 200,
+  "data": {
+    "polls": [
+      { "messageId": 119, "pollId": 5, "journeyId": 30, "title": "저녁 메뉴", "status": "OPEN", "voterCount": 3, "closesAt": "2026-11-02T18:00:00" }
+    ],
+    "nextCursor": null,
+    "hasNext": false,
+    "size": 1
+  }
+}
+```
 
 ---
 
