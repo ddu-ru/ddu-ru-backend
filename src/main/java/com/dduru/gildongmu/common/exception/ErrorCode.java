@@ -137,6 +137,12 @@ public enum ErrorCode {
     REPORT_NOT_FOUND(HttpStatus.NOT_FOUND, "신고 내역을 찾을 수 없습니다."),
     SELF_POST_REPORT_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "자신의 게시글은 신고할 수 없습니다."),
     DUPLICATE_POST_REPORT(HttpStatus.CONFLICT, "이미 신고한 게시글입니다."),
+    DUPLICATE_REPORT(HttpStatus.CONFLICT, "이미 접수된 신고가 있습니다."),
+    SELF_REPORT_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "자신 또는 자신의 메시지는 신고할 수 없습니다."),
+    INVALID_REPORT_TARGET(HttpStatus.BAD_REQUEST, "신고할 수 없는 대상입니다."),
+    INVALID_REPORT_REASON(HttpStatus.BAD_REQUEST, "해당 신고 대상에 사용할 수 없는 사유입니다."),
+    INVALID_REPORT_EVIDENCE(HttpStatus.BAD_REQUEST, "올바른 본인의 신고 첨부 파일이 아닙니다."),
+    REPORT_EVIDENCE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "신고 증빙 업로드를 사용할 수 없습니다."),
 
     // 파일 (FILE)
     FILE_UPLOAD_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "파일 업로드에 실패했습니다."),
