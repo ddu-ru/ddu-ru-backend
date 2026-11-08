@@ -1,6 +1,9 @@
 package com.dduru.gildongmu.chat.controller;
 
 import com.dduru.gildongmu.chat.dto.request.ChatMessageRetrieveRequest;
+import com.dduru.gildongmu.chat.dto.request.ChatContentListRequest;
+import com.dduru.gildongmu.chat.dto.response.ChatImageListResponse;
+import com.dduru.gildongmu.chat.dto.response.ChatPollListResponse;
 import com.dduru.gildongmu.chat.dto.request.ChatNotificationSettingsRequest;
 import com.dduru.gildongmu.chat.dto.request.ChatReadRequest;
 import com.dduru.gildongmu.chat.dto.request.ChatRoomListRequest;
@@ -26,6 +29,30 @@ import org.springframework.web.bind.annotation.RequestBody;
 @Tag(name = "Chat", description = "채팅 API")
 @SecurityRequirement(name = "JWT")
 public interface ChatApiDocs {
+
+    @Operation(summary = "채팅방 사진 모아보기", description = "현재 참여 시각 이후의 IMAGE 메시지를 메시지 ID 내림차순으로 조회합니다. "
+            + "여정 게시판 사진은 포함하지 않습니다. 미리보기와 모두보기는 size만 다르게 사용합니다. "
+            + "다음 페이지는 nextCursor를 cursor로 전달하며 size는 실제 반환 개수입니다. 조회만으로 읽음 처리하지 않습니다.")
+    @ApiResponse(responseCode = "200", description = "조회 성공")
+    @ApiErrorResponses({ErrorCode.UNAUTHORIZED, ErrorCode.INVALID_INPUT_VALUE, ErrorCode.CHAT_ROOM_NOT_FOUND,
+            ErrorCode.CHAT_ACCESS_DENIED, ErrorCode.CHAT_MESSAGE_NOT_FOUND})
+    ResponseEntity<ApiResult<ChatImageListResponse>> retrieveImages(
+            @Parameter(hidden = true) Long userId,
+            @Parameter(description = "채팅방 ID", required = true) Long chatRoomId,
+            @Valid @ParameterObject ChatContentListRequest request
+    );
+
+    @Operation(summary = "채팅방 투표 모아보기", description = "현재 참여 시각 이후의 POLL 메시지에 연결된 투표를 메시지 ID 내림차순으로 조회합니다. "
+            + "커서는 투표 ID가 아닌 메시지 ID입니다. 진행 중·종료 투표를 모두 포함하며 1:1 방은 빈 목록을 반환합니다. "
+            + "voterCount는 참여자 수이며 size는 실제 반환 개수입니다. 상세·투표 참여는 기존 여정 투표 API를 사용합니다. 조회만으로 읽음 처리하지 않습니다.")
+    @ApiResponse(responseCode = "200", description = "조회 성공")
+    @ApiErrorResponses({ErrorCode.UNAUTHORIZED, ErrorCode.INVALID_INPUT_VALUE, ErrorCode.CHAT_ROOM_NOT_FOUND,
+            ErrorCode.CHAT_ACCESS_DENIED, ErrorCode.CHAT_MESSAGE_NOT_FOUND})
+    ResponseEntity<ApiResult<ChatPollListResponse>> retrievePolls(
+            @Parameter(hidden = true) Long userId,
+            @Parameter(description = "채팅방 ID", required = true) Long chatRoomId,
+            @Valid @ParameterObject ChatContentListRequest request
+    );
 
     @Operation(
             summary = "1:1 채팅방 생성/조회",

@@ -1,6 +1,9 @@
 package com.dduru.gildongmu.chat.controller;
 
 import com.dduru.gildongmu.chat.dto.request.ChatMessageRetrieveRequest;
+import com.dduru.gildongmu.chat.dto.request.ChatContentListRequest;
+import com.dduru.gildongmu.chat.dto.response.ChatImageListResponse;
+import com.dduru.gildongmu.chat.dto.response.ChatPollListResponse;
 import com.dduru.gildongmu.chat.dto.request.ChatNotificationSettingsRequest;
 import com.dduru.gildongmu.chat.dto.request.ChatReadRequest;
 import com.dduru.gildongmu.chat.dto.request.ChatRoomListRequest;
@@ -72,6 +75,28 @@ public class ChatController implements ChatApiDocs {
             @Valid @RequestBody ChatReadRequest request
     ) {
         ChatReadResponse response = chatReadService.read(userId, chatRoomId, request);
+        return ResponseEntity.ok(ApiResult.ok(response));
+    }
+
+    @Override
+    @GetMapping("/chat-rooms/{chatRoomId}/images")
+    public ResponseEntity<ApiResult<ChatImageListResponse>> retrieveImages(
+            @CurrentUser Long userId,
+            @PathVariable Long chatRoomId,
+            @Valid @ModelAttribute ChatContentListRequest request
+    ) {
+        ChatImageListResponse response = chatMessageQueryService.retrieveImages(userId, chatRoomId, request);
+        return ResponseEntity.ok(ApiResult.ok(response));
+    }
+
+    @Override
+    @GetMapping("/chat-rooms/{chatRoomId}/polls")
+    public ResponseEntity<ApiResult<ChatPollListResponse>> retrievePolls(
+            @CurrentUser Long userId,
+            @PathVariable Long chatRoomId,
+            @Valid @ModelAttribute ChatContentListRequest request
+    ) {
+        ChatPollListResponse response = chatMessageQueryService.retrievePolls(userId, chatRoomId, request);
         return ResponseEntity.ok(ApiResult.ok(response));
     }
 
