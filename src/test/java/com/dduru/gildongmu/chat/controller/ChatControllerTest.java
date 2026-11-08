@@ -5,6 +5,7 @@ import com.dduru.gildongmu.chat.domain.enums.ChatMessageType;
 import com.dduru.gildongmu.chat.domain.enums.ChatRoomStatus;
 import com.dduru.gildongmu.chat.domain.enums.ChatRoomType;
 import com.dduru.gildongmu.chat.dto.request.ChatMessageRetrieveRequest;
+import com.dduru.gildongmu.chat.dto.request.ChatNotificationSettingsRequest;
 import com.dduru.gildongmu.chat.dto.request.ChatReadRequest;
 import com.dduru.gildongmu.chat.dto.request.ChatRoomListRequest;
 import com.dduru.gildongmu.chat.dto.request.ChatRoomListType;
@@ -12,13 +13,17 @@ import com.dduru.gildongmu.chat.dto.response.ChatMessageItemResponse;
 import com.dduru.gildongmu.chat.dto.response.ChatMessagePageResponse;
 import com.dduru.gildongmu.chat.dto.response.ChatMessageSenderResponse;
 import com.dduru.gildongmu.chat.dto.response.ChatMessagesResponse;
+import com.dduru.gildongmu.chat.dto.response.ChatNotificationSettingsResponse;
 import com.dduru.gildongmu.chat.dto.response.ChatReadResponse;
 import com.dduru.gildongmu.chat.dto.response.ChatRoomInfoResponse;
 import com.dduru.gildongmu.chat.dto.response.ChatRoomLastMessageResponse;
 import com.dduru.gildongmu.chat.dto.response.ChatRoomListItemResponse;
 import com.dduru.gildongmu.chat.dto.response.ChatRoomListPageResponse;
 import com.dduru.gildongmu.chat.dto.response.ChatRoomListResponse;
+import com.dduru.gildongmu.chat.exception.ChatAccessDeniedException;
+import com.dduru.gildongmu.chat.exception.ChatRoomNotFoundException;
 import com.dduru.gildongmu.chat.service.ChatMessageQueryService;
+import com.dduru.gildongmu.chat.service.ChatNotificationSettingsService;
 import com.dduru.gildongmu.chat.service.ChatReadService;
 import com.dduru.gildongmu.chat.service.ChatRoomListService;
 import com.dduru.gildongmu.chat.service.PrivateChatRoomService;
@@ -67,6 +72,9 @@ class ChatControllerTest {
 
     @Mock
     private ChatRoomListService chatRoomListService;
+
+    @Mock
+    private ChatNotificationSettingsService chatNotificationSettingsService;
 
     private MockMvc mockMvc;
 
@@ -329,12 +337,80 @@ class ChatControllerTest {
         org.mockito.Mockito.verifyNoInteractions(chatMessageQueryService);
     }
 
+    @Test
+    @DisplayName("방별 알림 조회는 현재 사용자의 저장값을 반환한다")
+    void retrieveNotificationSettings() throws Exception {
+        when(chatNotificationSettingsService.retrieve(10L, 1L))
+                .thenReturn(new ChatNotificationSettingsResponse(1L, false));
+
+        mockMvc.perform(get("/api/v1/chat-rooms/1/notification-settings"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.chatRoomId").value(1))
+                .andExpect(jsonPath("$.data.enabled").value(false));
+    }
+
+    @Test
+    @DisplayName("방별 알림 변경은 명시적인 false와 true를 현재 사용자 기준으로 처리한다")
+    void updateNotificationSettings() throws Exception {
+        for (boolean enabled : new boolean[]{false, true}) {
+            when(chatNotificationSettingsService.update(10L, 1L, new ChatNotificationSettingsRequest(enabled)))
+                    .thenReturn(new ChatNotificationSettingsResponse(1L, enabled));
+            mockMvc.perform(patch("/api/v1/chat-rooms/1/notification-settings")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"enabled\":" + enabled + "}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.chatRoomId").value(1))
+                    .andExpect(jsonPath("$.data.enabled").value(enabled));
+        }
+    }
+
+    @Test
+    @DisplayName("알림 설정 누락·null·잘못된 값·잘못된 JSON은 400이다")
+    void invalidNotificationSettings() throws Exception {
+        for (String body : List.of("{}", "{\"enabled\":null}", "{\"enabled\":\"invalid\"}", "{")) {
+            mockMvc.perform(patch("/api/v1/chat-rooms/1/notification-settings")
+                            .contentType(MediaType.APPLICATION_JSON).content(body))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.data.errorCode").value("INVALID_INPUT_VALUE"));
+        }
+        org.mockito.Mockito.verifyNoInteractions(chatNotificationSettingsService);
+    }
+
+    @Test
+    @DisplayName("알림 설정 조회·변경은 인증이 필요하다")
+    void notificationSettingsRequireAuthentication() throws Exception {
+        mockMvc = mockMvcWithUser(null);
+        mockMvc.perform(get("/api/v1/chat-rooms/1/notification-settings"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(patch("/api/v1/chat-rooms/1/notification-settings")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"enabled\":false}"))
+                .andExpect(status().isUnauthorized());
+        org.mockito.Mockito.verifyNoInteractions(chatNotificationSettingsService);
+    }
+
+    @Test
+    @DisplayName("알림 설정 권한과 방 없음 예외는 기존 에러 계약을 따른다")
+    void notificationSettingsBusinessErrors() throws Exception {
+        when(chatNotificationSettingsService.retrieve(10L, 1L))
+                .thenThrow(new ChatAccessDeniedException());
+        when(chatNotificationSettingsService.update(10L, 1L, new ChatNotificationSettingsRequest(false)))
+                .thenThrow(new ChatRoomNotFoundException());
+        mockMvc.perform(get("/api/v1/chat-rooms/1/notification-settings"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.data.errorCode").value("CHAT_ACCESS_DENIED"));
+        mockMvc.perform(patch("/api/v1/chat-rooms/1/notification-settings")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"enabled\":false}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.data.errorCode").value("CHAT_ROOM_NOT_FOUND"));
+    }
+
     private MockMvc mockMvcWithUser(Long userId) {
         return standaloneSetup(new ChatController(
                 privateChatRoomService,
                 chatMessageQueryService,
                 chatReadService,
-                chatRoomListService
+                chatRoomListService,
+                chatNotificationSettingsService
         ))
                 .setCustomArgumentResolvers(new FixedCurrentUserArgumentResolver(userId))
                 .setControllerAdvice(new GlobalExceptionHandler())

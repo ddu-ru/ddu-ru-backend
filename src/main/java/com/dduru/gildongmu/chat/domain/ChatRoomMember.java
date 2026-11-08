@@ -36,6 +36,9 @@ public class ChatRoomMember extends BaseTimeEntity {
     @JoinColumn(name = "last_read_message_id")
     private ChatMessage lastReadMessage;
 
+    @Column(name = "notification_enabled", nullable = false)
+    private boolean notificationEnabled = true;
+
     @Builder
     public ChatRoomMember(ChatRoom room, User user, ChatMemberRole role, ChatMessage lastReadMessage) {
         this.room = room;
@@ -59,5 +62,9 @@ public class ChatRoomMember extends BaseTimeEntity {
 
         this.lastReadMessage = message;
         return true;
+    }
+
+    public void changeNotificationSettings(boolean enabled) {
+        this.notificationEnabled = enabled;
     }
 }

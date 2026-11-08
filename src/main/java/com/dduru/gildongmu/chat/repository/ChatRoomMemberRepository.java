@@ -78,6 +78,14 @@ public interface ChatRoomMemberRepository extends JpaRepository<ChatRoomMember, 
     List<Long> findUserIdsByRoomId(@Param("roomId") Long roomId);
 
     @Query("""
+            SELECT m.user.id
+            FROM ChatRoomMember m
+            WHERE m.room.id = :roomId
+              AND m.notificationEnabled = true
+            """)
+    List<Long> findNotificationEnabledUserIdsByRoomId(@Param("roomId") Long roomId);
+
+    @Query("""
             SELECT COUNT(m) > 0
             FROM ChatRoomMember m
             WHERE m.room.id = :roomId

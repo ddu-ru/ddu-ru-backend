@@ -1,13 +1,16 @@
 package com.dduru.gildongmu.chat.controller;
 
 import com.dduru.gildongmu.chat.dto.request.ChatMessageRetrieveRequest;
+import com.dduru.gildongmu.chat.dto.request.ChatNotificationSettingsRequest;
 import com.dduru.gildongmu.chat.dto.request.ChatReadRequest;
 import com.dduru.gildongmu.chat.dto.request.ChatRoomListRequest;
 import com.dduru.gildongmu.chat.dto.response.ChatMessagesResponse;
+import com.dduru.gildongmu.chat.dto.response.ChatNotificationSettingsResponse;
 import com.dduru.gildongmu.chat.dto.response.ChatReadResponse;
 import com.dduru.gildongmu.chat.dto.response.ChatRoomListResponse;
 import com.dduru.gildongmu.chat.dto.response.PrivateChatRoomCreateResponse;
 import com.dduru.gildongmu.chat.service.ChatMessageQueryService;
+import com.dduru.gildongmu.chat.service.ChatNotificationSettingsService;
 import com.dduru.gildongmu.chat.service.ChatReadService;
 import com.dduru.gildongmu.chat.service.ChatRoomListService;
 import com.dduru.gildongmu.chat.service.PrivateChatRoomService;
@@ -35,6 +38,7 @@ public class ChatController implements ChatApiDocs {
     private final ChatMessageQueryService chatMessageQueryService;
     private final ChatReadService chatReadService;
     private final ChatRoomListService chatRoomListService;
+    private final ChatNotificationSettingsService chatNotificationSettingsService;
 
     @Override
     @PostMapping("/posts/{postId}/chats/private")
@@ -79,5 +83,24 @@ public class ChatController implements ChatApiDocs {
     ) {
         ChatRoomListResponse response = chatRoomListService.retrieveChatRooms(userId, request);
         return ResponseEntity.ok(ApiResult.ok(response));
+    }
+
+    @Override
+    @GetMapping("/chat-rooms/{chatRoomId}/notification-settings")
+    public ResponseEntity<ApiResult<ChatNotificationSettingsResponse>> retrieveNotificationSettings(
+            @CurrentUser Long userId,
+            @PathVariable Long chatRoomId
+    ) {
+        return ResponseEntity.ok(ApiResult.ok(chatNotificationSettingsService.retrieve(userId, chatRoomId)));
+    }
+
+    @Override
+    @PatchMapping("/chat-rooms/{chatRoomId}/notification-settings")
+    public ResponseEntity<ApiResult<ChatNotificationSettingsResponse>> updateNotificationSettings(
+            @CurrentUser Long userId,
+            @PathVariable Long chatRoomId,
+            @Valid @RequestBody ChatNotificationSettingsRequest request
+    ) {
+        return ResponseEntity.ok(ApiResult.ok(chatNotificationSettingsService.update(userId, chatRoomId, request)));
     }
 }

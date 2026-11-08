@@ -16,6 +16,7 @@
 | 읽음 처리 | `ChatReadService`, `PATCH /api/v1/chat-rooms/{chatRoomId}/read` |
 | 채팅방 목록 | `ChatRoomListService`, `GET /api/v1/chat-rooms` |
 | 목록 실시간 갱신 | `ChatRoomListRealtimePublisher`, `/user/queue/chat-room-list` |
+| 채팅방 알림 설정 | `ChatNotificationSettingsService`, 멤버별 메시지 푸시 수신 설정 |
 | 채팅 메시지 푸시 | `ChatPushNotificationService`, FCM 전용 발송 |
 
 ---
@@ -136,3 +137,19 @@ sender 자동 읽음 처리로 별도 `READ` 이벤트는 발행하지 않습니
 - WebSocket 재연결/앱 복귀 시에는 재조회가 필요합니다. 이벤트는 영구 보관하거나 재전송하지 않습니다.
 - 종료 시각에는 별도 이벤트를 보내지 않습니다. 클라이언트는 `closesAt`으로 표시를 갱신하며 서버가 투표 요청 시 종료 여부를 최종 검증합니다.
 - 채팅 메시지의 `unreadCount`와 투표 상세 화면을 연 사람 수는 다릅니다. 상세 조회자 집계는 이번 구현에 포함하지 않습니다.
+
+## 7. 채팅방 알림 설정
+
+- `chat_room_members.notification_enabled`에 사용자·방별 설정을 저장한다. `ChatRoomMember` 생성 시 ON이며 멤버 삭제 후 재생성하는 기존 재참여 흐름에서도 ON으로 초기화된다.
+- `ChatNotificationSettingsService`는 기존 채팅 조회와 동일하게 DELETED 방, 비멤버, 그룹방의 비활성 여정 멤버를 차단한다. CLOSED 방은 허용한다.
+- 변경은 읽음·메시지 전송과 같은 `findByRoomIdAndUserIdWithLock` 멤버 잠금을 사용한다. 서로의 알림 설정과 읽음 위치를 덮어쓰지 않으며 동일 값 재요청 시 추가 변경이 없다.
+- 푸시 리스너만 `findNotificationEnabledUserIdsByRoomId`를 사용한다. 전체 멤버 조회는 그대로 유지하므로 WebSocket·목록 이벤트·미읽음 계산의 대상은 바뀌지 않는다.
+- 방별 ON → 발신자 제외 → 접속 중 사용자 제외 → 전체 알림 ON → 방별 30초 쿨다운 순으로 발송 대상을 결정한다. 방별 OFF로 대상이 없으면 쿨다운을 소비하지 않는다.
+- 설정은 푸시 대상 조회 시점에 반영한다. 이미 발송 대상으로 처리되거나 FCM에 전달된 메시지를 취소하지 않는다.
+- API 계약과 클라이언트 호출 방법은 [채팅방 알림 설정 API](../003-api/006-chat-notification-settings.md)에 둔다.
+
+### 배포 및 검증
+
+- `V39__add_chat_room_member_notification_enabled.sql`은 NOT NULL 컬럼을 기본값 1로 추가해 기존 멤버의 푸시 동작을 유지한다. 배포 전에 Flyway 활성화와 V39 적용을 확인한다.
+- 애플리케이션 롤백 시 컬럼을 남겨두어도 이전 코드와 호환된다. 방별 OFF를 존중하려면 기능 코드도 유지해야 한다. 컬럼을 제거하면 설정이 유실되므로 복구 시 기존 migration을 수정하지 않는다.
+- 서비스/컨트롤러 테스트로 권한·상태·검증·멱등성을 확인한다. JPA 통합 테스트로 설정 저장, 방/사용자 격리, 읽음 위치 보존, 재참여 ON, TEXT·IMAGE·POLL의 OFF 수신자 제외를 확인한다.
