@@ -7,6 +7,9 @@ import com.dduru.gildongmu.chat.domain.enums.ChatMemberRole;
 import com.dduru.gildongmu.chat.domain.enums.ChatMessageType;
 import com.dduru.gildongmu.chat.domain.enums.ChatRoomStatus;
 import com.dduru.gildongmu.chat.dto.request.ChatMessageRetrieveRequest;
+import com.dduru.gildongmu.chat.dto.request.ChatContentListRequest;
+import com.dduru.gildongmu.chat.dto.response.ChatImageListResponse;
+import com.dduru.gildongmu.chat.dto.response.ChatPollListResponse;
 import com.dduru.gildongmu.chat.dto.response.ChatMessagesResponse;
 import com.dduru.gildongmu.chat.dto.ws.ChatSystemMessagePayload;
 import com.dduru.gildongmu.chat.exception.ChatAccessDeniedException;
@@ -34,6 +37,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -44,6 +49,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -52,6 +58,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -402,6 +409,231 @@ class ChatMessageQueryServiceTest {
                     roomId,
                     new ChatMessageRetrieveRequest(beforeMessageId, 20)
             )).isInstanceOf(ChatMessageNotFoundException.class);
+        }
+    }
+
+    @Nested
+    @DisplayName("사진·투표 모아보기")
+    class RetrieveContents {
+
+        private final LocalDateTime joinedAt = LocalDateTime.of(2026, 11, 1, 10, 0);
+        private User user;
+        private Journey journey;
+        private ChatRoom room;
+        private ChatRoomMember member;
+
+        @BeforeEach
+        void prepareRoom() {
+            user = createUser(10L, "host", "hostNick");
+            journey = createJourney(30L, createPost(1L, user, "제주 동행 여행"), "제주 동행 여행");
+            room = createGroupRoom(200L, journey, ChatRoomStatus.ACTIVE);
+            member = createMember(room, user, ChatMemberRole.HOST, joinedAt);
+        }
+
+        @Test
+        @DisplayName("사진은 최신순으로 반환하고 마지막 반환 메시지를 커서로 사용하며 읽음 위치를 변경하지 않는다")
+        void imagesUseMessageCursorWithoutMarkingRead() {
+            allowGroupAccess();
+            ChatMessage newest = image(103L);
+            ChatMessage older = image(102L);
+            when(chatMessageRepository.findVisibleMessagesByType(
+                    eq(200L), eq(ChatMessageType.IMAGE), eq(null), eq(joinedAt), any(Pageable.class)))
+                    .thenReturn(List.of(newest, older, image(101L)));
+
+            ChatImageListResponse response = chatMessageQueryService.retrieveImages(
+                    10L, 200L, new ChatContentListRequest(null, 2));
+
+            assertThat(response.images()).extracting("messageId").containsExactly(103L, 102L);
+            assertThat(response.images().get(0).imageUrl()).isEqualTo(newest.getContent());
+            assertThat(response.images().get(0).createdAt()).isEqualTo(joinedAt);
+            assertThat(response.nextCursor()).isEqualTo(102L);
+            assertThat(response.hasNext()).isTrue();
+            assertThat(response.size()).isEqualTo(2);
+            assertThat(member.getLastReadMessage()).isNull();
+            ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
+            verify(chatMessageRepository).findVisibleMessagesByType(
+                    eq(200L), eq(ChatMessageType.IMAGE), eq(null), eq(joinedAt), pageable.capture());
+            assertThat(pageable.getValue().getPageSize()).isEqualTo(3);
+            verifyNoInteractions(journeyPollQueryService, userRepository, chatSystemMessageFactory);
+        }
+
+        @Test
+        @DisplayName("사진 다음 페이지는 커서를 검증하고 기본 크기 20으로 조회한다")
+        void imagesValidateCursorAndUseDefaultSize() {
+            allowGroupAccess();
+            when(chatMessageRepository.existsByIdAndRoom_IdAndCreatedAtGreaterThanEqual(104L, 200L, joinedAt))
+                    .thenReturn(true);
+            when(chatMessageRepository.findVisibleMessagesByType(
+                    eq(200L), eq(ChatMessageType.IMAGE), eq(104L), eq(joinedAt), any(Pageable.class)))
+                    .thenReturn(List.of(image(103L)));
+
+            ChatImageListResponse response = chatMessageQueryService.retrieveImages(
+                    10L, 200L, new ChatContentListRequest(104L, null));
+
+            assertThat(response.nextCursor()).isNull();
+            assertThat(response.hasNext()).isFalse();
+            assertThat(response.size()).isEqualTo(1);
+            ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
+            verify(chatMessageRepository).findVisibleMessagesByType(
+                    eq(200L), eq(ChatMessageType.IMAGE), eq(104L), eq(joinedAt), pageable.capture());
+            assertThat(pageable.getValue().getPageSize()).isEqualTo(21);
+        }
+
+        @Test
+        @DisplayName("투표는 최신 집계를 재사용하고 pollId가 아닌 messageId를 다음 커서로 반환한다")
+        void pollsUseLatestSummaryAndMessageCursor() {
+            allowGroupAccess();
+            ChatMessage newest = pollMessage(2000L, 5L);
+            ChatMessage older = pollMessage(1999L, 4L);
+            ChatMessage lookAhead = pollMessage(1998L, 3L);
+            JourneyPollSummaryResponse open = JourneyPollSummaryResponse.from(
+                    newest.getPoll(), joinedAt, 2, List.of(), List.of());
+            JourneyPollSummaryResponse closed = JourneyPollSummaryResponse.from(
+                    older.getPoll(), joinedAt.plusDays(2), 3, List.of(), List.of());
+            when(chatMessageRepository.findVisibleMessagesByType(
+                    eq(200L), eq(ChatMessageType.POLL), eq(null), eq(joinedAt), any(Pageable.class)))
+                    .thenReturn(List.of(newest, older, lookAhead));
+            when(journeyPollQueryService.buildSummaries(List.of(newest.getPoll(), older.getPoll()), 10L))
+                    .thenReturn(Map.of(5L, open, 4L, closed));
+
+            ChatPollListResponse response = chatMessageQueryService.retrievePolls(
+                    10L, 200L, new ChatContentListRequest(null, 2));
+
+            assertThat(response.polls()).extracting("pollId").containsExactly(5L, 4L);
+            assertThat(response.polls()).extracting("messageId").containsExactly(2000L, 1999L);
+            assertThat(response.polls().get(0).voterCount()).isEqualTo(2);
+            assertThat(response.polls().get(0).journeyId()).isEqualTo(30L);
+            assertThat(response.polls().get(0).title()).isEqualTo(open.title());
+            assertThat(response.polls().get(1).status()).isEqualTo(closed.status());
+            assertThat(response.polls().get(1).closesAt()).isEqualTo(closed.closesAt());
+            assertThat(response.nextCursor()).isEqualTo(1999L);
+            assertThat(response.hasNext()).isTrue();
+            assertThat(response.size()).isEqualTo(2);
+            assertThat(member.getLastReadMessage()).isNull();
+        }
+
+        @Test
+        @DisplayName("빈 투표 목록은 추가 집계 없이 빈 페이지를 반환한다")
+        void emptyPollsSkipAggregation() {
+            allowGroupAccess();
+
+            ChatPollListResponse response = chatMessageQueryService.retrievePolls(
+                    10L, 200L, new ChatContentListRequest(null, 2));
+
+            assertThat(response.polls()).isEmpty();
+            assertThat(response.nextCursor()).isNull();
+            assertThat(response.hasNext()).isFalse();
+            assertThat(response.size()).isZero();
+            verifyNoInteractions(journeyPollQueryService);
+        }
+
+        @Test
+        @DisplayName("1:1 방 사진은 조회할 수 있지만 투표 목록은 빈 목록이다")
+        void privateRoomSupportsImagesOnly() {
+            ChatRoom privateRoom = createPrivateRoom(200L, journey.getPost(), ChatRoomStatus.ACTIVE);
+            ChatRoomMember privateMember = createMember(privateRoom, user, ChatMemberRole.HOST, joinedAt);
+            when(chatRoomRepository.getByIdWithContextOrThrow(200L)).thenReturn(privateRoom);
+            when(chatRoomMemberRepository.findByRoomIdAndUserId(200L, 10L)).thenReturn(Optional.of(privateMember));
+
+            assertThat(chatMessageQueryService.retrieveImages(10L, 200L, new ChatContentListRequest(null, 5)).images())
+                    .isEmpty();
+            ChatPollListResponse response = chatMessageQueryService.retrievePolls(
+                    10L, 200L, new ChatContentListRequest(null, 2));
+
+            assertThat(response.polls()).isEmpty();
+            assertThat(response.hasNext()).isFalse();
+            verify(chatMessageRepository, never()).findVisibleMessagesByType(
+                    any(), eq(ChatMessageType.POLL), any(), any(), any());
+            verifyNoInteractions(journeyMemberRepository, journeyPollQueryService);
+        }
+
+        @ParameterizedTest
+        @EnumSource(value = ChatMessageType.class, names = {"IMAGE", "POLL"})
+        @DisplayName("종료된 방도 현재 참여자는 모아보기를 조회할 수 있다")
+        void closedRoomAllowsContentRead(ChatMessageType type) {
+            allowGroupAccess();
+            ReflectionTestUtils.setField(room, "status", ChatRoomStatus.CLOSED);
+
+            retrieve(type, new ChatContentListRequest(null, 2));
+
+            verify(chatMessageRepository).findVisibleMessagesByType(
+                    eq(200L), eq(type), eq(null), eq(joinedAt), any(Pageable.class));
+        }
+
+        @ParameterizedTest
+        @EnumSource(value = ChatMessageType.class, names = {"IMAGE", "POLL"})
+        @DisplayName("삭제된 방에서는 모아보기를 조회할 수 없다")
+        void deletedRoomRejectsContentRead(ChatMessageType type) {
+            ReflectionTestUtils.setField(room, "status", ChatRoomStatus.DELETED);
+            when(chatRoomRepository.getByIdWithContextOrThrow(200L)).thenReturn(room);
+
+            assertThatThrownBy(() -> retrieve(type, new ChatContentListRequest(null, 2)))
+                    .isInstanceOf(ChatRoomNotFoundException.class);
+            verifyNoInteractions(chatMessageRepository, journeyPollQueryService);
+        }
+
+        @ParameterizedTest
+        @EnumSource(value = ChatMessageType.class, names = {"IMAGE", "POLL"})
+        @DisplayName("채팅방 비참여자는 모아보기를 조회할 수 없다")
+        void nonMemberRejectsContentRead(ChatMessageType type) {
+            when(chatRoomRepository.getByIdWithContextOrThrow(200L)).thenReturn(room);
+
+            assertThatThrownBy(() -> retrieve(type, new ChatContentListRequest(null, 2)))
+                    .isInstanceOf(ChatAccessDeniedException.class);
+            verifyNoInteractions(chatMessageRepository, journeyPollQueryService);
+        }
+
+        @ParameterizedTest
+        @EnumSource(value = ChatMessageType.class, names = {"IMAGE", "POLL"})
+        @DisplayName("비활성 여정 참여자는 그룹방 모아보기를 조회할 수 없다")
+        void inactiveJourneyMemberRejectsContentRead(ChatMessageType type) {
+            when(chatRoomRepository.getByIdWithContextOrThrow(200L)).thenReturn(room);
+            when(chatRoomMemberRepository.findByRoomIdAndUserId(200L, 10L)).thenReturn(Optional.of(member));
+
+            assertThatThrownBy(() -> retrieve(type, new ChatContentListRequest(null, 2)))
+                    .isInstanceOf(ChatAccessDeniedException.class);
+            verifyNoInteractions(chatMessageRepository, journeyPollQueryService);
+        }
+
+        @ParameterizedTest
+        @EnumSource(value = ChatMessageType.class, names = {"IMAGE", "POLL"})
+        @DisplayName("다른 방 또는 참여 이전 메시지 커서는 거부한다")
+        void invisibleCursorRejectsContentRead(ChatMessageType type) {
+            allowGroupAccess();
+
+            assertThatThrownBy(() -> retrieve(type, new ChatContentListRequest(999L, 2)))
+                    .isInstanceOf(ChatMessageNotFoundException.class);
+            verify(chatMessageRepository).existsByIdAndRoom_IdAndCreatedAtGreaterThanEqual(999L, 200L, joinedAt);
+            verify(chatMessageRepository, never()).findVisibleMessagesByType(any(), any(), any(), any(), any());
+        }
+
+        private void retrieve(ChatMessageType type, ChatContentListRequest request) {
+            if (type == ChatMessageType.IMAGE) {
+                chatMessageQueryService.retrieveImages(10L, 200L, request);
+            } else {
+                chatMessageQueryService.retrievePolls(10L, 200L, request);
+            }
+        }
+
+        private void allowGroupAccess() {
+            when(chatRoomRepository.getByIdWithContextOrThrow(200L)).thenReturn(room);
+            when(chatRoomMemberRepository.findByRoomIdAndUserId(200L, 10L)).thenReturn(Optional.of(member));
+            when(journeyMemberRepository.existsByJourneyIdAndUserIdAndStatus(30L, 10L, JourneyMemberStatus.ACTIVE))
+                    .thenReturn(true);
+        }
+
+        private ChatMessage image(Long id) {
+            return createMessage(id, room, user, ChatMessageType.IMAGE, "https://example.com/" + id + ".png", joinedAt);
+        }
+
+        private ChatMessage pollMessage(Long messageId, Long pollId) {
+            JourneyPoll poll = JourneyPoll.create(journey, user, "Dinner", true, false, false,
+                    joinedAt.plusDays(1), joinedAt);
+            ReflectionTestUtils.setField(poll, "id", pollId);
+            ChatMessage message = ChatMessage.forPoll(room, poll);
+            ReflectionTestUtils.setField(message, "id", messageId);
+            ReflectionTestUtils.setField(message, "createdAt", joinedAt);
+            return message;
         }
     }
 
