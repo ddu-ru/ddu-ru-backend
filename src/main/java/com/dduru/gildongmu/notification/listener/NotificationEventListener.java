@@ -15,6 +15,8 @@ import com.dduru.gildongmu.notification.service.NotificationPersistService;
 import com.dduru.gildongmu.participation.event.MatchAppliedEvent;
 import com.dduru.gildongmu.participation.event.MatchApprovedEvent;
 import com.dduru.gildongmu.user.repository.UserRepository;
+import com.dduru.gildongmu.report.event.ReportReviewedEvent;
+import com.dduru.gildongmu.report.domain.enums.ReportStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -34,6 +36,19 @@ public class NotificationEventListener {
     private final UserRepository userRepository;
     private final FcmPushService fcmPushService;
     private final PostLikeRepository postLikeRepository;
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleReportReviewed(ReportReviewedEvent event) {
+        try {
+            String body = event.status() == ReportStatus.RESOLVED
+                    ? "접수하신 신고의 검토 및 처리가 완료되었습니다."
+                    : "접수하신 신고를 검토했으나 조치 대상으로 확인되지 않았습니다.";
+            notifyUsers(List.of(event.reporterId()), NotificationType.REPORT_REVIEWED, body,
+                    ResourceType.REPORT, event.reportId(), NotificationType.REPORT_REVIEWED.getTitle());
+        } catch (Exception e) {
+            log.error("REPORT_REVIEWED 알림 저장 실패 - reportId={}", event.reportId(), e);
+        }
+    }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleMatchApplied(MatchAppliedEvent event) {

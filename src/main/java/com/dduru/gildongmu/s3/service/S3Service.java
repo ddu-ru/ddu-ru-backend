@@ -1,12 +1,10 @@
 package com.dduru.gildongmu.s3.service;
 
 import com.dduru.gildongmu.common.config.S3Properties;
-import com.dduru.gildongmu.common.validation.S3ImageUrlValidator;
 import com.dduru.gildongmu.s3.dto.request.ImageUploadFileRequest;
 import com.dduru.gildongmu.s3.dto.response.ImageUploadResponse;
 import com.dduru.gildongmu.s3.enums.S3ImageDirectory;
-import com.dduru.gildongmu.s3.exception.InvalidFileExtensionException;
-import com.dduru.gildongmu.s3.exception.InvalidFileSizeException;
+import com.dduru.gildongmu.s3.validation.ImageUploadValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -18,7 +16,6 @@ import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignReques
 
 import java.time.Duration;
 import java.util.List;
-import java.util.Locale;
 import java.util.UUID;
 
 @Slf4j
@@ -77,10 +74,7 @@ public class S3Service {
     }
 
     private ImageUploadResponse prepareUploadInternal(ImageUploadFileRequest file, S3ImageDirectory directory) {
-        validateFileExtension(file.fileName());
-        if (file.fileSize() == null || file.fileSize() <= 0 || file.fileSize() > ImageUploadFileRequest.MAX_FILE_SIZE) {
-            throw new InvalidFileSizeException();
-        }
+        ImageUploadValidator.validate(file);
         String finalFileName = generateFileName(file.fileName());
         String key = directory.keyPrefix() + finalFileName;
         return presignPut(key, file.fileSize());
@@ -105,14 +99,6 @@ public class S3Service {
         String presignedUrl = s3Presigner.presignPutObject(presignRequest).url().toString();
         String fileUrl = getS3Url(key);
         return new ImageUploadResponse(presignedUrl, fileUrl);
-    }
-
-    private void validateFileExtension(String fileName) {
-        String extension = StringUtils.getFilenameExtension(fileName);
-        List<String> allowedExtensions = S3ImageUrlValidator.allowedFileExtensions();
-        if (extension == null || !allowedExtensions.contains(extension.toLowerCase(Locale.ROOT))) {
-            throw InvalidFileExtensionException.invalidExtension(allowedExtensions);
-        }
     }
 
     private String generateFileName(String originalFilename) {

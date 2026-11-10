@@ -39,6 +39,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.never;
+import static org.mockito.ArgumentMatchers.any;
+import org.springframework.context.ApplicationEventPublisher;
+import com.dduru.gildongmu.report.event.ReportReviewedEvent;
+import com.dduru.gildongmu.report.domain.enums.ReportTargetType;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("AdminReportService 테스트")
@@ -54,6 +59,9 @@ class AdminReportServiceTest {
 
     @Mock
     private TimeProvider timeProvider;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private AdminReportService adminReportService;
@@ -93,7 +101,7 @@ class AdminReportServiceTest {
             User reviewer = createUser(reviewerId, "admin@dduru.com", "관리자", Role.ADMIN);
             AdminReportUpdateRequest request = new AdminReportUpdateRequest(ReportStatus.RESOLVED, "검토 및 조치 완료");
 
-            when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
+            when(reportRepository.findByIdWithLock(reportId)).thenReturn(Optional.of(report));
             when(userRepository.getByIdOrThrow(reviewerId)).thenReturn(reviewer);
             when(timeProvider.now()).thenReturn(NOW);
 
@@ -104,6 +112,7 @@ class AdminReportServiceTest {
             assertThat(response.reviewerName()).isEqualTo("관리자");
             assertThat(response.reviewedAt()).isEqualTo(NOW);
             assertThat(response.reviewNote()).isEqualTo("검토 및 조치 완료");
+            verify(eventPublisher).publishEvent(new ReportReviewedEvent(reportId, 2L, ReportStatus.RESOLVED));
         }
 
         @Test
@@ -113,11 +122,36 @@ class AdminReportServiceTest {
             Long reviewerId = 1L;
             AdminReportUpdateRequest request = new AdminReportUpdateRequest(ReportStatus.REJECTED, "근거 부족");
 
-            when(reportRepository.findById(reportId)).thenReturn(Optional.empty());
+            when(reportRepository.findByIdWithLock(reportId)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> adminReportService.update(reportId, reviewerId, request))
                     .isInstanceOf(ReportNotFoundException.class);
         }
+    }
+
+    @Test
+    void repeatedTerminalStatusDoesNotNotifyAgain() {
+        Report report = createReport(11L);
+        User reviewer = createUser(99L, "a@test.com", "admin", Role.ADMIN);
+        report.updateByAdmin(ReportStatus.RESOLVED, reviewer, "done", NOW);
+        when(reportRepository.findByIdWithLock(11L)).thenReturn(Optional.of(report));
+        when(userRepository.getByIdOrThrow(99L)).thenReturn(reviewer);
+        when(timeProvider.now()).thenReturn(NOW);
+        adminReportService.update(11L, 99L, new AdminReportUpdateRequest(ReportStatus.RESOLVED, "updated note"));
+        verify(eventPublisher, never()).publishEvent(any(ReportReviewedEvent.class));
+    }
+
+    @Test
+    void userReportWithoutPostIsIncludedInAdminList() {
+        Report report = Report.forUser(createUser(1L, "r@test.com", "r", Role.USER),
+                createUser(2L, "t@test.com", "t", Role.USER), ReportReason.OTHER, "details");
+        Pageable pageable = PageRequest.of(0, 20);
+        when(reportRepository.findAllByStatusOptional(null, pageable)).thenReturn(new PageImpl<>(List.of(report)));
+        AdminReportResponse item = adminReportService.findAll(null, pageable).content().get(0);
+        assertThat(item.targetType()).isEqualTo(ReportTargetType.USER);
+        assertThat(item.reportedUserId()).isEqualTo(2L);
+        assertThat(item.postId()).isNull();
+        assertThat(item.postTitle()).isNull();
     }
 
     private Report createReport(Long reportId) {

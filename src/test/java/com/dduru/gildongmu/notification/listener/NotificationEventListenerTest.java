@@ -35,6 +35,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import com.dduru.gildongmu.report.event.ReportReviewedEvent;
+import com.dduru.gildongmu.report.domain.enums.ReportStatus;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("NotificationEventListener 테스트")
@@ -60,6 +62,24 @@ class NotificationEventListenerTest {
     @BeforeEach
     void setUp() {
         listener = new NotificationEventListener(notificationPersistService, journeyMemberRepository, userRepository, fcmPushService, postLikeRepository);
+    }
+
+    @Test
+    void reportResultOnlyNotifiesReporter() {
+        User reporter = User.builder().name("reporter").build();
+        when(userRepository.getReferenceById(1L)).thenReturn(reporter);
+        when(userRepository.findEnabledUserIds(List.of(1L))).thenReturn(List.of(1L));
+        listener.handleReportReviewed(new ReportReviewedEvent(5L, 1L, ReportStatus.RESOLVED));
+        ArgumentCaptor<List<Notification>> captor = ArgumentCaptor.forClass(List.class);
+        verify(notificationPersistService).saveAll(captor.capture());
+        assertThat(captor.getValue()).hasSize(1);
+        Notification notification = captor.getValue().get(0);
+        assertThat(notification.getRecipient()).isSameAs(reporter);
+        assertThat(notification.getType()).isEqualTo(NotificationType.REPORT_REVIEWED);
+        assertThat(notification.getResourceType()).isEqualTo(ResourceType.REPORT);
+        assertThat(notification.getResourceId()).isEqualTo(5L);
+        verify(fcmPushService).sendToUsers(List.of(1L), "신고 처리 결과", notification.getBody(), null,
+                FcmPushService.dataPayload(ResourceType.REPORT, 5L));
     }
 
     // ── MATCH ─────────────────────────────────────────────────────────────────

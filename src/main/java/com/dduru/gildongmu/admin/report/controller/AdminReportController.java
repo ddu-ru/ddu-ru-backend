@@ -7,6 +7,8 @@ import com.dduru.gildongmu.admin.report.dto.response.AdminReportResponse;
 import com.dduru.gildongmu.admin.report.service.AdminReportService;
 import com.dduru.gildongmu.common.annotation.CurrentUser;
 import com.dduru.gildongmu.common.dto.ApiResult;
+import com.dduru.gildongmu.report.dto.response.ReportEvidenceResponse;
+import com.dduru.gildongmu.report.service.ReportEvidenceService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -26,6 +28,14 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminReportController implements AdminReportApiDocs {
 
     private final AdminReportService adminReportService;
+    private final ReportEvidenceService reportEvidenceService;
+
+    @Override
+    @GetMapping("/{reportId}/evidence")
+    public ResponseEntity<ApiResult<ReportEvidenceResponse>> retrieveEvidence(@PathVariable Long reportId) {
+        ReportEvidenceResponse response = reportEvidenceService.retrieveEvidence(reportId);
+        return ResponseEntity.ok(ApiResult.ok(response));
+    }
 
     @Override
     @GetMapping
