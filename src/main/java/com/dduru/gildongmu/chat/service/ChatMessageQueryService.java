@@ -7,6 +7,11 @@ import com.dduru.gildongmu.chat.domain.enums.ChatMessageType;
 import com.dduru.gildongmu.chat.domain.enums.ChatRoomStatus;
 import com.dduru.gildongmu.chat.domain.enums.ChatRoomType;
 import com.dduru.gildongmu.chat.dto.request.ChatMessageRetrieveRequest;
+import com.dduru.gildongmu.chat.dto.request.ChatContentListRequest;
+import com.dduru.gildongmu.chat.dto.response.ChatImageItemResponse;
+import com.dduru.gildongmu.chat.dto.response.ChatImageListResponse;
+import com.dduru.gildongmu.chat.dto.response.ChatPollItemResponse;
+import com.dduru.gildongmu.chat.dto.response.ChatPollListResponse;
 import com.dduru.gildongmu.chat.dto.response.ChatMessageItemResponse;
 import com.dduru.gildongmu.chat.dto.response.ChatMessagePageResponse;
 import com.dduru.gildongmu.chat.dto.response.ChatMessagesResponse;
@@ -92,6 +97,51 @@ public class ChatMessageQueryService {
                 toRoomInfo(room, userId),
                 new ChatMessagePageResponse(size, hasNext, nextCursor),
                 toMessageResponses(orderedMessages, room, userId, systemPayloads, systemUsers, unreadCounts, polls)
+        );
+    }
+
+    public ChatImageListResponse retrieveImages(Long userId, Long roomId, ChatContentListRequest request) {
+        List<ChatMessage> messages = findContentMessages(userId, roomId, request, ChatMessageType.IMAGE);
+        boolean hasNext = messages.size() > request.sizeOrDefault();
+        List<ChatImageItemResponse> images = trimLookAheadMessages(messages, request.sizeOrDefault()).stream()
+                .map(ChatImageItemResponse::from)
+                .toList();
+        return ChatImageListResponse.of(images, hasNext);
+    }
+
+    public ChatPollListResponse retrievePolls(Long userId, Long roomId, ChatContentListRequest request) {
+        List<ChatMessage> messages = findContentMessages(userId, roomId, request, ChatMessageType.POLL);
+        boolean hasNext = messages.size() > request.sizeOrDefault();
+        List<ChatMessage> pageMessages = trimLookAheadMessages(messages, request.sizeOrDefault());
+        Map<Long, JourneyPollSummaryResponse> summaries = loadPolls(pageMessages, userId);
+        List<ChatPollItemResponse> polls = pageMessages.stream()
+                .map(message -> ChatPollItemResponse.from(message.getId(), summaries.get(message.getPoll().getId())))
+                .toList();
+        return ChatPollListResponse.of(polls, hasNext);
+    }
+
+    private List<ChatMessage> findContentMessages(
+            Long userId,
+            Long roomId,
+            ChatContentListRequest request,
+            ChatMessageType messageType
+    ) {
+        ChatRoom room = chatRoomRepository.getByIdWithContextOrThrow(roomId);
+        validateRoomRetrievable(room);
+        ChatRoomMember member = chatRoomMemberRepository.findByRoomIdAndUserId(roomId, userId)
+                .orElseThrow(ChatAccessDeniedException::new);
+        validateGroupAccess(room, userId);
+        validateCursor(roomId, request.cursor(), member.getCreatedAt());
+
+        if (messageType == ChatMessageType.POLL && room.getRoomType() != ChatRoomType.GROUP) {
+            return List.of();
+        }
+        return chatMessageRepository.findVisibleMessagesByType(
+                roomId,
+                messageType,
+                request.cursor(),
+                member.getCreatedAt(),
+                PageRequest.of(0, request.sizeOrDefault() + 1)
         );
     }
 

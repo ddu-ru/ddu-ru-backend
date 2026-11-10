@@ -5,6 +5,12 @@ import com.dduru.gildongmu.chat.domain.enums.ChatMessageType;
 import com.dduru.gildongmu.chat.domain.enums.ChatRoomStatus;
 import com.dduru.gildongmu.chat.domain.enums.ChatRoomType;
 import com.dduru.gildongmu.chat.dto.request.ChatMessageRetrieveRequest;
+import com.dduru.gildongmu.chat.dto.request.ChatContentListRequest;
+import com.dduru.gildongmu.chat.dto.response.ChatImageItemResponse;
+import com.dduru.gildongmu.chat.dto.response.ChatImageListResponse;
+import com.dduru.gildongmu.chat.dto.response.ChatPollItemResponse;
+import com.dduru.gildongmu.chat.dto.response.ChatPollListResponse;
+import com.dduru.gildongmu.journey.domain.enums.JourneyPollStatus;
 import com.dduru.gildongmu.chat.dto.request.ChatNotificationSettingsRequest;
 import com.dduru.gildongmu.chat.dto.request.ChatReadRequest;
 import com.dduru.gildongmu.chat.dto.request.ChatRoomListRequest;
@@ -33,6 +39,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -51,6 +59,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -81,6 +91,70 @@ class ChatControllerTest {
     @BeforeEach
     void setUp() {
         mockMvc = mockMvcWithUser(10L);
+    }
+
+    @Test
+    @DisplayName("사진 모아보기는 cursor·size를 전달하고 이미지 목록과 페이지 정보를 반환한다")
+    void retrieveImages() throws Exception {
+        ChatImageListResponse response = ChatImageListResponse.of(List.of(
+                new ChatImageItemResponse(110L, "https://example.com/photo.png", LocalDateTime.of(2026, 11, 1, 10, 0))
+        ), true);
+        when(chatMessageQueryService.retrieveImages(eq(10L), eq(100L), any(ChatContentListRequest.class)))
+                .thenReturn(response);
+
+        mockMvc.perform(get("/api/v1/chat-rooms/100/images").param("cursor", "120").param("size", "5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.images[0].messageId").value(110))
+                .andExpect(jsonPath("$.data.images[0].imageUrl").value("https://example.com/photo.png"))
+                .andExpect(jsonPath("$.data.nextCursor").value(110))
+                .andExpect(jsonPath("$.data.hasNext").value(true))
+                .andExpect(jsonPath("$.data.size").value(1));
+
+        verify(chatMessageQueryService).retrieveImages(10L, 100L, new ChatContentListRequest(120L, 5));
+    }
+
+    @Test
+    @DisplayName("투표 모아보기는 상세 이동 정보와 참여자 수를 반환한다")
+    void retrievePolls() throws Exception {
+        ChatPollListResponse response = ChatPollListResponse.of(List.of(
+                new ChatPollItemResponse(110L, 5L, 30L, "Dinner", JourneyPollStatus.OPEN, 3,
+                        LocalDateTime.of(2026, 11, 2, 10, 0))
+        ), false);
+        when(chatMessageQueryService.retrievePolls(eq(10L), eq(100L), any(ChatContentListRequest.class)))
+                .thenReturn(response);
+
+        mockMvc.perform(get("/api/v1/chat-rooms/100/polls").param("size", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.polls[0].messageId").value(110))
+                .andExpect(jsonPath("$.data.polls[0].pollId").value(5))
+                .andExpect(jsonPath("$.data.polls[0].journeyId").value(30))
+                .andExpect(jsonPath("$.data.polls[0].voterCount").value(3))
+                .andExpect(jsonPath("$.data.hasNext").value(false));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"images", "polls"})
+    @DisplayName("모아보기는 잘못된 페이지 크기와 커서를 거부한다")
+    void contentsRejectInvalidParameters(String resource) throws Exception {
+        for (String size : List.of("0", "51")) {
+            mockMvc.perform(get("/api/v1/chat-rooms/100/" + resource).param("size", size))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.data.errorCode").value("INVALID_INPUT_VALUE"));
+        }
+        mockMvc.perform(get("/api/v1/chat-rooms/100/" + resource).param("cursor", "0"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.data.errorCode").value("INVALID_INPUT_VALUE"));
+        verifyNoInteractions(chatMessageQueryService);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"images", "polls"})
+    @DisplayName("모아보기는 인증되지 않은 요청을 거부한다")
+    void contentsRequireAuthentication(String resource) throws Exception {
+        mockMvc = mockMvcWithUser(null);
+        mockMvc.perform(get("/api/v1/chat-rooms/100/" + resource))
+                .andExpect(status().isUnauthorized());
+        verifyNoInteractions(chatMessageQueryService);
     }
 
     @Test

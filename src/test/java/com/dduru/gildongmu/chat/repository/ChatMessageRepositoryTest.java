@@ -5,12 +5,16 @@ import com.dduru.gildongmu.chat.domain.ChatRoom;
 import com.dduru.gildongmu.chat.domain.enums.ChatMessageType;
 import com.dduru.gildongmu.common.config.QueryDslConfig;
 import com.dduru.gildongmu.destination.domain.Destination;
+import com.dduru.gildongmu.journey.domain.Journey;
+import com.dduru.gildongmu.journey.domain.JourneyPoll;
 import com.dduru.gildongmu.post.domain.Post;
 import com.dduru.gildongmu.profile.domain.enums.Gender;
 import com.dduru.gildongmu.user.domain.User;
 import com.dduru.gildongmu.user.domain.enums.OauthType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
@@ -130,6 +134,57 @@ class ChatMessageRepositoryTest {
                 room.getId(),
                 visibleFrom
         )).isFalse();
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = ChatMessageType.class, names = {"IMAGE", "POLL"})
+    @DisplayName("모아보기는 방·메시지 유형·참여 시각·커서를 적용하고 최신순으로 제한 조회한다")
+    void findVisibleMessagesByTypeAppliesAllFilters(ChatMessageType type) {
+        User host = persistUser("host", 1);
+        Post post = persistPost(host, persistDestination());
+        Journey journey = entityManager.persist(Journey.create(post));
+        ChatRoom room = entityManager.persist(ChatRoom.createGroupChat(journey));
+        ChatRoom otherRoom = entityManager.persist(ChatRoom.forPrivateChat(post));
+        LocalDateTime joinedAt = LocalDateTime.of(2026, 11, 1, 10, 0);
+
+        ChatMessage extra = persistContentMessage(room, host, type, journey, joinedAt);
+        ChatMessage boundary = persistContentMessage(room, host, type, journey, joinedAt);
+        ChatMessage newest = persistContentMessage(room, host, type, journey, joinedAt);
+        ChatMessage tooOld = persistContentMessage(room, host, type, journey, joinedAt);
+        ChatMessage other = persistContentMessage(otherRoom, host, type, journey, joinedAt);
+        ChatMessage text = persistMessage(room, host, "not content");
+        ChatMessage cursor = persistContentMessage(room, host, type, journey, joinedAt);
+        ChatMessage afterCursor = persistContentMessage(room, host, type, journey, joinedAt);
+        entityManager.flush();
+        for (ChatMessage message : List.of(extra, boundary, newest, other, text, cursor, afterCursor)) {
+            updateCreatedAt(message, joinedAt);
+        }
+        updateCreatedAt(tooOld, joinedAt.minusSeconds(1));
+        entityManager.clear();
+
+        List<ChatMessage> messages = chatMessageRepository.findVisibleMessagesByType(
+                room.getId(), type, cursor.getId(), joinedAt, PageRequest.of(0, 2));
+
+        assertThat(messages).extracting(ChatMessage::getId).containsExactly(newest.getId(), boundary.getId());
+        assertThat(messages).allMatch(message -> message.getMessageType() == type);
+        if (type == ChatMessageType.POLL) {
+            assertThat(entityManager.getEntityManager().getEntityManagerFactory().getPersistenceUnitUtil()
+                    .isLoaded(messages.get(0), "poll")).isTrue();
+        }
+        assertThat(chatMessageRepository.findVisibleMessagesByType(
+                room.getId(), type, null, joinedAt, PageRequest.of(0, 1)))
+                .extracting(ChatMessage::getId).containsExactly(afterCursor.getId());
+    }
+
+    private ChatMessage persistContentMessage(
+            ChatRoom room, User sender, ChatMessageType type, Journey journey, LocalDateTime now
+    ) {
+        if (type == ChatMessageType.POLL) {
+            JourneyPoll poll = entityManager.persist(JourneyPoll.create(
+                    journey, sender, "Dinner", false, false, false, now.plusDays(1), now));
+            return entityManager.persist(ChatMessage.forPoll(room, poll));
+        }
+        return entityManager.persist(ChatMessage.create(room, sender, type, "https://example.com/photo.png"));
     }
 
     private User persistUser(String name, int suffix) {
