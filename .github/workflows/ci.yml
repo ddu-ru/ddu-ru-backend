@@ -38,10 +38,10 @@ jobs:
         run: docker compose up -d --wait
 
       - name: 🔨 Build & H2 tests with Gradle
-        run: ./gradlew clean build --info --stacktrace -Duser.language=ko -Duser.country=KR
+        run: ./gradlew clean build --stacktrace -Duser.language=ko -Duser.country=KR
 
       - name: 🐬 MySQL 8.4 integration tests
-        run: ./gradlew mysqlIntegrationTest --info --stacktrace -Duser.language=ko -Duser.country=KR
+        run: ./gradlew mysqlIntegrationTest --stacktrace -Duser.language=ko -Duser.country=KR
 
       - name: 📋 Upload test reports
         if: always()
