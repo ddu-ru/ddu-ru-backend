@@ -48,6 +48,11 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("SELECT u FROM User u WHERE u.id = :id")
     Optional<User> findByIdWithLock(@Param("id") Long id);
 
+    default User getByIdWithLockOrThrow(Long id) {
+        return findByIdWithLock(id)
+                .orElseThrow(UserNotFoundException::new);
+    }
+
     @Query("SELECT u.id FROM User u WHERE u.id IN :ids AND u.notificationEnabled = true")
     List<Long> findEnabledUserIds(@Param("ids") List<Long> ids);
 
