@@ -1,19 +1,19 @@
 # 이미지 업로드
 
-게시글, 프로필, 여정, 채팅 이미지에 동일한 업로드 정책을 적용합니다.
+게시글, 프로필, 여정, 채팅, 문의 이미지에 동일한 업로드 정책을 적용합니다.
 
 - 허용 확장자: `jpg`, `jpeg`, `png` (대소문자 구분 없음)
 - 이미지 한 장당 1~5,242,880바이트 (최대 5MB)
 - Presigned URL 발급 요청당 최대 10개
 - Presigned URL 유효시간: 10분
-- 여정 게시글 첨부 개수 제한은 기존 최대 4장 유지
+- 여정 게시글 및 문의 첨부 개수는 최대 4장
 
 ## URL 발급 요청
 
 기존 `fileNames` 배열 대신 `files` 배열로 파일명과 크기를 함께 전달합니다.
 이 변경은 기존 클라이언트와 호환되지 않으므로 앱 요청 형식도 함께 수정해야 합니다.
 
-`POST /api/v1/images/{posts|profiles|journeys|chats}/presigned-url`
+`POST /api/v1/images/{posts|profiles|journeys|chats|inquiries}/presigned-url`
 
 ```json
 {

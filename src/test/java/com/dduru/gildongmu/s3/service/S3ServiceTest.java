@@ -54,13 +54,14 @@ class S3ServiceTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = S3ImageDirectory.class, names = {"POSTS", "PROFILES", "JOURNEYS", "CHATS"})
+    @EnumSource(value = S3ImageDirectory.class, names = {"POSTS", "PROFILES", "JOURNEYS", "CHATS", "INQUIRIES"})
     void prepareUpload_allDirectories_signExactSizeAtLimit(S3ImageDirectory directory) {
         List<ImageUploadFileRequest> files = List.of(new ImageUploadFileRequest("photo.jpg", 5242880L));
         List<ImageUploadResponse> responses = switch (directory) {
             case POSTS -> service.preparePostImageUpload(files);
             case PROFILES -> service.prepareProfileImageUpload(files);
             case JOURNEYS -> service.prepareJourneyImageUpload(files);
+            case INQUIRIES -> service.prepareInquiryImageUpload(files);
             case CHATS -> service.prepareChatImageUpload(files);
             default -> throw new IllegalArgumentException("No upload endpoint for " + directory);
         };

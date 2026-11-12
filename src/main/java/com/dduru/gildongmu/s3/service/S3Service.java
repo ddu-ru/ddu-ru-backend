@@ -73,6 +73,12 @@ public class S3Service {
         return responses;
     }
 
+    public List<ImageUploadResponse> prepareInquiryImageUpload(List<ImageUploadFileRequest> files) {
+        return files.stream()
+                .map(file -> prepareUploadInternal(file, S3ImageDirectory.INQUIRIES))
+                .toList();
+    }
+
     private ImageUploadResponse prepareUploadInternal(ImageUploadFileRequest file, S3ImageDirectory directory) {
         ImageUploadValidator.validate(file);
         String finalFileName = generateFileName(file.fileName());
