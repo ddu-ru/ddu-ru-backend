@@ -27,10 +27,11 @@
 | `chat` | 1:1/그룹 채팅방, 메시지, 읽음 처리 | `ChatRoom`, `ChatRoomMember`, `ChatMessage` |
 | `like` | 게시글 좋아요 토글 | `PostLike` |
 | `report` | 게시글 신고 | `Report`, `ReportReason`, `ReportStatus` |
+| `support` | FAQ 검색, 본인 문의 등록/전체 기간 조회/답변 전 수정 | `Faq`, `Inquiry`, `InquiryImage`, `InquiryStatus` |
 | `superhost` | 슈퍼호스트 티켓, 노출 상태, 스케줄링 | `SuperHostTicket`, `SuperHostExposure` |
 | `s3` | 이미지 업로드용 presigned URL 발급 | `S3ImageDirectory` |
 | `verification` | 휴대폰 인증번호 발송/검증 | Redis 또는 인증 데이터 |
-| `admin` | 관리자 사용자/게시글/신고 조회 및 처리 | admin controller/service |
+| `admin` | 관리자 사용자/게시글/신고 조회 및 처리, 문의 조회 및 답변 등록/수정 | admin controller/service |
 | `home` | 홈 화면 데이터 조합 | `HomeResponse` |
 | `notification` | 도메인 이벤트 기반 인앱 알림 생성·저장, 알림함 조회/읽음 처리 | `Notification`, `NotificationType`, `ResourceType` |
 | `fcm` | FCM 디바이스 토큰 등록/삭제, 이벤트 기반 FCM 푸시 발송 | `UserFcmToken`, `DeviceType` |
@@ -53,6 +54,8 @@
 | `ChatRoom` - `Post` | 1:1 채팅방은 모집글 컨텍스트를 참조합니다. |
 | `ChatRoom` - `Journey` | 그룹 채팅방은 나의 여정 컨텍스트를 참조합니다. |
 | `ChatMessage` - `ChatRoom` | 메시지는 채팅방에 속합니다. |
+| `User` - `Inquiry` | 문의는 작성자와 마지막 답변 관리자를 각각 참조합니다. |
+| `Inquiry` - `InquiryImage` | 문의는 표시 순서가 있는 첨부 사진을 최대 4장 가집니다. |
 
 ---
 
@@ -122,6 +125,16 @@ ACTIVE -> CLOSED -> DELETED
 - `CLOSED`: 조회/읽음 처리는 가능하지만 메시지 전송은 제한됩니다.
 - `DELETED`: 존재하지 않는 방처럼 처리합니다.
 
+### 고객센터 문의
+
+```text
+WAITING -> ANSWERED
+```
+
+- `WAITING`: 답변 대기 상태로, 작성자가 문의 내용을 수정할 수 있습니다.
+- `ANSWERED`: 관리자 답변이 등록된 상태로, 작성자의 문의 수정은 제한됩니다.
+- 관리자는 기존 답변을 수정할 수 있으며 상태는 `ANSWERED`로 유지됩니다.
+
 ---
 
 ## 5. 도메인별 주의점
@@ -131,6 +144,9 @@ ACTIVE -> CLOSED -> DELETED
 - 1:1 채팅방은 `post_id`, 그룹 채팅방은 `journey_id`만 가져야 합니다.
 - 설문 v2는 4개 성향 축과 활동 태그, 기록 스타일을 사용합니다.
 - 관리자 API는 JWT claim만 신뢰하지 않고 DB role을 다시 조회합니다.
+- 고객센터 API는 FAQ를 포함해 인증이 필요하며, 일반 사용자는 본인의 문의만 조회/수정할 수 있습니다.
+- FAQ는 DB에서 관리하며 노출 중인 항목만 조회합니다. 문의 수정과 답변 저장은 동일 문의의 비관적 쓰기 잠금으로 순차 처리합니다.
+- 고객센터 답변 등록 시 인앱 알림과 FCM 푸시는 아직 발송하지 않습니다.
 
 ---
 

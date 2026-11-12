@@ -65,6 +65,9 @@
 | `chat_room_members` | chat | 채팅방 멤버와 읽음 위치 |
 | `chat_messages` | chat | 채팅 메시지 |
 | `reports` | report | 게시글 신고 |
+| `faqs` | support | FAQ 카테고리, 질문/답변, 노출 여부, 정렬 순서 |
+| `inquiries` | support | 문의 작성자, 유형/본문/상태, 단일 답변과 마지막 답변 관리자 |
+| `inquiry_images` | support | 문의 첨부 사진 URL과 표시 순서 |
 | `super_host_tickets` | superhost | 슈퍼호스트 티켓 |
 | `super_host_exposures` | superhost | 슈퍼호스트 노출 |
 | `notifications` | notification | 인앱 알림 (이벤트 기반 생성, 커서 페이지네이션 조회) |
@@ -82,6 +85,8 @@
 | `modifiedAt` | `modified_at` | 수정 시각 |
 
 `BaseTimeEntity`는 `@MappedSuperclass`와 JPA Auditing을 사용합니다.
+문의는 별도로 `answered_at`과 `answer_modified_at`을 저장하며, 답변 수정 시 최초 답변 시각은 유지합니다.
+`inquiry_images`는 `BaseTimeEntity`를 상속하지 않습니다.
 
 ---
 
@@ -94,6 +99,8 @@
 | `post` | Soft delete | `is_deleted`, `deleted_at`, `deleted_by` 직접 관리 |
 | `journey_posts` | Soft delete | 게시글 삭제 여부와 삭제자 기록 |
 | `chat_rooms` | 상태 기반 | `ACTIVE`, `CLOSED`, `DELETED` |
+| `inquiries` | 삭제 API 없음 | 문의와 단일 답변을 유지하며 답변 변경 이력은 별도로 저장하지 않음 |
+| `inquiry_images` | 물리 삭제 | 문의 수정 시 제거한 첨부 연결을 삭제하며 S3 객체는 삭제하지 않음 |
 | 그 외 | 도메인별 상이 | 물리 삭제, 상태 변경, unique row 유지 등 코드 확인 필요 |
 
 ---
@@ -113,3 +120,6 @@
 - `journey_posts`: `(journey_id, is_deleted, is_notice, created_at, id)` 인덱스가 여정 게시판 조회에 사용됩니다.
 - `notifications`: `(recipient_user_id, id)` 인덱스가 커서 페이지네이션 조회에 사용됩니다.
 - `user_fcm_tokens`: `uk_token (token)` — 동일 토큰 중복 등록 방지. `uk_user_device (user_id, device_type)` — 사용자+디바이스 타입 기준 upsert 키.
+- `faqs`: `(visible, sort_order, id)` 인덱스가 노출 FAQ 정렬 조회에 사용됩니다.
+- `inquiries`: `user_id`, `answered_by`는 `users(id)` FK. 본문은 최대 500자, 답변은 최대 5,000자이며 상태는 `WAITING`/`ANSWERED`입니다. `(user_id, id)`, `(status, id)` 인덱스가 본인 문의와 관리자 상태별 조회에 사용됩니다.
+- `inquiry_images`: `inquiry_id`는 `inquiries(id)` FK. URL은 최대 2,048자이며 첨부 최대 4장은 도메인에서 보장합니다. `(inquiry_id, sort_order)` 인덱스가 문의별 첨부 순서 조회에 사용됩니다.
