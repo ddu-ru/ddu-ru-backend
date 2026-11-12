@@ -1,5 +1,6 @@
 package com.dduru.gildongmu.post.service;
 
+import com.dduru.gildongmu.block.service.UserBlockService;
 import com.dduru.gildongmu.chat.service.GroupChatRoomService;
 import com.dduru.gildongmu.chat.event.PostUpdatedEvent;
 import com.dduru.gildongmu.common.time.TimeProvider;
@@ -62,6 +63,7 @@ public class PostService {
     private final S3ImageUrlValidator s3ImageUrlValidator;
     private final TimeProvider timeProvider;
     private final ApplicationEventPublisher eventPublisher;
+    private final UserBlockService userBlockService;
 
     public PostCreateResponse create(Long userId, PostCreateRequest request) {
         TagValidator.validateOrThrow(request.tags());
@@ -117,18 +119,22 @@ public class PostService {
     }
 
     public PostDetailResponse recordViewAndGetDetail(Long postId, Long currentUserId) {
+        Post post = postRepository.getActiveByIdOrThrow(postId);
+        userBlockService.validateNotBlocked(currentUserId, post.getUser().getId());
         postRepository.incrementViewCount(postId);
-        return getDetail(postId, currentUserId);
+        return buildDetailResponse(postRepository.getActiveByIdOrThrow(postId), currentUserId);
     }
 
     @Transactional(readOnly = true)
     public PostDetailResponse getDetail(Long postId, Long currentUserId) {
         Post post = postRepository.getActiveByIdOrThrow(postId);
+        userBlockService.validateNotBlocked(currentUserId, post.getUser().getId());
         return buildDetailResponse(post, currentUserId);
     }
 
     @Transactional(readOnly = true)
     public PostDetailResponse getDetail(Post post, Long currentUserId) {
+        userBlockService.validateNotBlocked(currentUserId, post.getUser().getId());
         return buildDetailResponse(post, currentUserId);
     }
 

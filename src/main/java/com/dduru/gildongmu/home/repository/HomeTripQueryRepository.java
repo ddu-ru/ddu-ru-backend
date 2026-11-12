@@ -2,6 +2,7 @@ package com.dduru.gildongmu.home.repository;
 
 import com.dduru.gildongmu.home.dto.response.SameAgeTripResponse;
 import com.dduru.gildongmu.home.dto.response.SameDestinationTripResponse;
+import com.dduru.gildongmu.block.domain.QUserBlock;
 import com.dduru.gildongmu.post.domain.enums.PostStatus;
 import com.dduru.gildongmu.recommendation.domain.UserRecommendationDestinationPreference;
 import com.dduru.gildongmu.recommendation.domain.enums.RecommendationDestinationPreferenceType;
@@ -81,6 +82,18 @@ public class HomeTripQueryRepository {
                 .and(post.user.id.ne(userId))
                 .and(JPAExpressions.selectOne().from(report)
                         .where(report.post.id.eq(post.id), report.user.id.eq(userId))
-                        .notExists());
+                        .notExists())
+                .and(notBlockedBy(userId));
+    }
+
+    private BooleanExpression notBlockedBy(Long userId) {
+        QUserBlock userBlock = new QUserBlock("homeTripUserBlock");
+        return JPAExpressions.selectOne()
+                .from(userBlock)
+                .where(
+                        userBlock.blocker.id.eq(userId).and(userBlock.blockedUser.id.eq(post.user.id))
+                                .or(userBlock.blocker.id.eq(post.user.id).and(userBlock.blockedUser.id.eq(userId)))
+                )
+                .notExists();
     }
 }

@@ -8,6 +8,7 @@ import com.dduru.gildongmu.recommendation.domain.QMateRecommendationPass;
 import com.dduru.gildongmu.recommendation.dto.query.DestinationPreferenceFilter;
 import com.dduru.gildongmu.recommendation.dto.query.MateRecommendationCardQueryResult;
 import com.dduru.gildongmu.recommendation.dto.query.RecommendationApplicantContext;
+import com.dduru.gildongmu.block.domain.QUserBlock;
 import com.dduru.gildongmu.survey.domain.QAvatarProfile;
 import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.BooleanExpression;
@@ -112,10 +113,22 @@ public class MateRecommendationCardQueryRepository {
                                         report.post.id.eq(post.id),
                                         report.user.id.eq(userId)
                                 )
-                                .notExists()
+                                .notExists(),
+                        notBlockedBy(userId)
                 )
                 .orderBy(mateRecommendation.recommendationRank.asc())
                 .fetch();
+    }
+
+    private BooleanExpression notBlockedBy(Long userId) {
+        QUserBlock userBlock = new QUserBlock("visibleRecommendationUserBlock");
+        return JPAExpressions.selectOne()
+                .from(userBlock)
+                .where(
+                        userBlock.blocker.id.eq(userId).and(userBlock.blockedUser.id.eq(post.user.id))
+                                .or(userBlock.blocker.id.eq(post.user.id).and(userBlock.blockedUser.id.eq(userId)))
+                )
+                .notExists();
     }
 
     private BooleanExpression genderCondition(Gender applicantGender) {

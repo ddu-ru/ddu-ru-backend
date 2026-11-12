@@ -5,6 +5,7 @@ import com.dduru.gildongmu.profile.domain.enums.Gender;
 import com.dduru.gildongmu.recommendation.domain.QMateRecommendationPass;
 import com.dduru.gildongmu.recommendation.dto.query.DestinationPreferenceFilter;
 import com.dduru.gildongmu.recommendation.dto.query.RecommendablePostQueryResult;
+import com.dduru.gildongmu.block.domain.QUserBlock;
 import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.JPAExpressions;
@@ -80,9 +81,21 @@ public class RecommendablePostQueryRepository {
                                         report.post.id.eq(post.id),
                                         report.user.id.eq(userId)
                                 )
-                                .notExists()
+                                .notExists(),
+                        notBlockedBy(userId)
                 )
                 .fetch();
+    }
+
+    private BooleanExpression notBlockedBy(Long userId) {
+        QUserBlock userBlock = new QUserBlock("recommendationUserBlock");
+        return JPAExpressions.selectOne()
+                .from(userBlock)
+                .where(
+                        userBlock.blocker.id.eq(userId).and(userBlock.blockedUser.id.eq(post.user.id))
+                                .or(userBlock.blocker.id.eq(post.user.id).and(userBlock.blockedUser.id.eq(userId)))
+                )
+                .notExists();
     }
 
     private BooleanExpression genderCondition(Gender applicantGender) {
