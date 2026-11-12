@@ -1,6 +1,7 @@
 package com.dduru.gildongmu.s3.enums;
 
 public enum S3ImageDirectory {
+    INQUIRIES("inquiries"),
     POSTS("posts"),
     PROFILES("profiles"),
     JOURNEYS("journeys"),

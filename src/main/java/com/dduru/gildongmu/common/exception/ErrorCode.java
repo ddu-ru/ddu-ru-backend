@@ -6,6 +6,13 @@ import org.springframework.http.HttpStatus;
 @Getter
 public enum ErrorCode {
 
+    // 고객센터 (SUPPORT)
+    INQUIRY_NOT_FOUND(HttpStatus.NOT_FOUND, "문의를 찾을 수 없습니다."),
+    INQUIRY_ACCESS_DENIED(HttpStatus.FORBIDDEN, "본인의 문의만 조회하거나 수정할 수 있습니다."),
+    INQUIRY_ALREADY_ANSWERED(HttpStatus.CONFLICT, "답변이 등록된 문의는 수정할 수 없습니다."),
+    INVALID_INQUIRY(HttpStatus.BAD_REQUEST, "문의 유형, 본문(1~500자), 사진(최대 4장)을 확인해주세요."),
+    INVALID_INQUIRY_ANSWER(HttpStatus.BAD_REQUEST, "답변은 1~5000자로 입력해주세요."),
+
     // 공통 (COMMON)
     INVALID_INPUT_VALUE(HttpStatus.BAD_REQUEST, "잘못된 입력 값입니다."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다."),

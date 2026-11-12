@@ -116,4 +116,17 @@ public interface S3ApiDocs {
     ResponseEntity<ApiResult<List<ImageUploadResponse>>> prepareChatImageUpload(
             @Valid @RequestBody ImageUploadRequest request
     );
+
+    @Operation(summary = "문의 사진 업로드 URL 발급", description = IMAGE_UPLOAD_POLICY
+            + "URL 발급 요청은 최대 10개이며, 문의 한 건에는 최대 4장만 첨부할 수 있습니다. fileUrl을 문의의 imageUrls에 전달합니다.")
+    @ApiResponse(responseCode = "200", description = "Presigned URL 생성 성공")
+    @ApiErrorResponses({
+            ErrorCode.UNAUTHORIZED,
+            ErrorCode.INVALID_INPUT_VALUE,
+            ErrorCode.INVALID_FILE_SIZE,
+            ErrorCode.INVALID_FILE_EXTENSION,
+            ErrorCode.UNSUPPORTED_MEDIA_TYPE
+    })
+    ResponseEntity<ApiResult<List<ImageUploadResponse>>> prepareInquiryImageUpload(
+            @Valid @RequestBody ImageUploadRequest request);
 }
