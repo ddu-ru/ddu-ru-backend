@@ -1,5 +1,6 @@
 package com.dduru.gildongmu.post.service;
 
+import com.dduru.gildongmu.block.service.UserBlockService;
 import com.dduru.gildongmu.chat.event.PostUpdatedEvent;
 import com.dduru.gildongmu.chat.service.GroupChatRoomService;
 import com.dduru.gildongmu.common.time.TimeProvider;
@@ -64,6 +65,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doThrow;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("PostService 테스트")
@@ -85,6 +87,7 @@ class PostServiceTest {
     @Mock private TimeProvider timeProvider;
     @Mock private S3ImageUrlValidator s3ImageUrlValidator;
     @Mock private ApplicationEventPublisher eventPublisher;
+    @Mock private UserBlockService userBlockService;
 
     @InjectMocks
     private PostService postService;
@@ -95,6 +98,23 @@ class PostServiceTest {
         lenient().when(timeProvider.now()).thenReturn(NOW);
         lenient().when(s3ImageUrlValidator.validateAndNormalize(anyString(), any(S3ImageDirectory.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
+    }
+
+    @Test
+    @DisplayName("차단 관계에서는 게시글 상세 조회 전에 접근을 거절하고 조회수를 올리지 않는다")
+    void rejectsBlockedPostDetailBeforeIncrementingViewCount() {
+        Long postId = 10L;
+        Long viewerId = 1L;
+        User owner = createUser(2L, "owner");
+        Post post = createBasicPost(postId, owner);
+        when(postRepository.getActiveByIdOrThrow(postId)).thenReturn(post);
+        doThrow(new com.dduru.gildongmu.block.exception.BlockedUserException())
+                .when(userBlockService).validateNotBlocked(viewerId, owner.getId());
+
+        assertThatThrownBy(() -> postService.recordViewAndGetDetail(postId, viewerId))
+                .isInstanceOf(com.dduru.gildongmu.block.exception.BlockedUserException.class);
+
+        verify(postRepository, never()).incrementViewCount(postId);
     }
 
     // ─────────────────────────────────────────────────────────────────────────

@@ -1,5 +1,6 @@
 package com.dduru.gildongmu.chat.service;
 
+import com.dduru.gildongmu.block.service.UserBlockService;
 import com.dduru.gildongmu.chat.constants.ChatDestinationPaths;
 import com.dduru.gildongmu.chat.constants.ChatMessageConstants;
 import com.dduru.gildongmu.chat.domain.ChatMessage;
@@ -47,6 +48,7 @@ public class ChatMessageSendService {
     private final ChatRoomMemberRepository chatRoomMemberRepository;
     private final ChatMessageRepository chatMessageRepository;
     private final UserRepository userRepository;
+    private final UserBlockService userBlockService;
 
     private final ProfileImageResolver profileImageResolver;
     private final SimpMessagingTemplate simpMessagingTemplate;
@@ -58,6 +60,7 @@ public class ChatMessageSendService {
         ChatRoom room = chatRoomRepository.getByIdOrThrow(roomId);
         validateRoomOpen(room);
         ChatRoomMember senderMember = getSenderMember(senderUserId, roomId);
+        validatePrivateChatNotBlocked(room, senderUserId);
 
         User sender = userRepository.getWithProfileByIdOrThrow(senderUserId);
         String content = resolveUserMessageContent(request);
@@ -142,6 +145,15 @@ public class ChatMessageSendService {
         if (room.getStatus() == ChatRoomStatus.CLOSED || room.getStatus() == ChatRoomStatus.DELETED) {
             throw new ChatRoomClosedException();
         }
+    }
+
+    private void validatePrivateChatNotBlocked(ChatRoom room, Long senderUserId) {
+        if (room.getRoomType() != ChatRoomType.PRIVATE) {
+            return;
+        }
+        chatRoomMemberRepository.findUserIdsByRoomId(room.getId()).stream()
+                .filter(memberUserId -> !memberUserId.equals(senderUserId))
+                .forEach(memberUserId -> userBlockService.validateNotBlocked(senderUserId, memberUserId));
     }
 
     /**

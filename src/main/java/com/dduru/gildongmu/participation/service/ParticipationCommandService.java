@@ -1,5 +1,6 @@
 package com.dduru.gildongmu.participation.service;
 
+import com.dduru.gildongmu.block.service.UserBlockService;
 import com.dduru.gildongmu.chat.dto.response.GroupChatInviteMemberResponse;
 import com.dduru.gildongmu.chat.dto.response.PrivateChatRoomCreateResponse;
 import com.dduru.gildongmu.chat.service.GroupChatRoomService;
@@ -52,6 +53,7 @@ public class ParticipationCommandService {
     private final JourneyMemberRepository journeyMemberRepository;
     private final TimeProvider timeProvider;
     private final ApplicationEventPublisher eventPublisher;
+    private final UserBlockService userBlockService;
 
     public ParticipationContactResponse contactParticipation(Long userId, Long participationId) {
         Participation participation = participationRepository.getByIdWithLockOrThrow(participationId);
@@ -60,6 +62,7 @@ public class ParticipationCommandService {
 
         validatePostOwner(lockedPost, userId);
         lockedPost.validateIsOpen();
+        userBlockService.validateNotBlocked(userId, participantUserId);
 
         PrivateChatRoomCreateResponse room = privateChatRoomService.createOrGetRoomWithLockedPost(userId, lockedPost, participantUserId);
 
@@ -81,6 +84,7 @@ public class ParticipationCommandService {
 
         validatePostOwner(lockedPost, userId);
         lockedPost.validateIsOpen();
+        userBlockService.validateNotBlocked(userId, participantUserId);
 
         lockedPost.approveParticipation(participation, timeProvider.now());
         Journey journey = journeyRepository.getByPostIdOrThrow(lockedPost.getId());

@@ -29,6 +29,11 @@ public interface PostLikeRepository extends JpaRepository<PostLike, Long> {
             WHERE pl.user.id = :userId
               AND post.isDeleted = false
               AND (:cursor IS NULL OR pl.id < :cursor)
+              AND NOT EXISTS (
+                  SELECT ub.id FROM UserBlock ub
+                  WHERE (ub.blocker.id = :userId AND ub.blockedUser.id = post.user.id)
+                     OR (ub.blocker.id = post.user.id AND ub.blockedUser.id = :userId)
+              )
             ORDER BY pl.id DESC
             """)
     List<PostLike> findLikedPostsByUserIdWithCursor(

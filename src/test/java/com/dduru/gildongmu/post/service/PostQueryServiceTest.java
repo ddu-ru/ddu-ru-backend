@@ -83,7 +83,7 @@ class PostQueryServiceTest {
             Post post = createPost(1L);
             PostListRequest request = listRequest(2, null);
 
-            when(postRepository.findPostsWithFilters(any(), any(LocalDate.class), isNull(), any(Pageable.class)))
+            when(postRepository.findPostsWithFilters(any(), any(LocalDate.class), isNull(), any(), any(Pageable.class)))
                     .thenReturn(List.of(post));
 
             PostListResponse response = postQueryService.retrieveAllWithFilter(request, null);
@@ -101,7 +101,7 @@ class PostQueryServiceTest {
             Long userId = 10L;
             PostListRequest request = listRequest(5, null);
 
-            when(postRepository.findPostsWithFilters(any(), any(LocalDate.class), isNull(), any(Pageable.class)))
+            when(postRepository.findPostsWithFilters(any(), any(LocalDate.class), isNull(), any(), any(Pageable.class)))
                     .thenReturn(List.of(likedPost, notLikedPost));
             when(postLikeRepository.findLikedPostIdsByUserId(eq(userId), any()))
                     .thenReturn(Set.of(1L));
@@ -111,6 +111,7 @@ class PostQueryServiceTest {
             assertThat(response.posts()).hasSize(2);
             assertThat(response.posts().get(0).hasLiked()).isTrue();
             assertThat(response.posts().get(1).hasLiked()).isFalse();
+            verify(postRepository).findPostsWithFilters(any(), any(LocalDate.class), isNull(), eq(userId), any(Pageable.class));
         }
 
         @Test
@@ -119,7 +120,7 @@ class PostQueryServiceTest {
             Long userId = 10L;
             PostListRequest request = listRequest(5, null);
 
-            when(postRepository.findPostsWithFilters(any(), any(LocalDate.class), isNull(), any(Pageable.class)))
+            when(postRepository.findPostsWithFilters(any(), any(LocalDate.class), isNull(), any(), any(Pageable.class)))
                     .thenReturn(List.of());
 
             postQueryService.retrieveAllWithFilter(request, userId);
@@ -139,7 +140,7 @@ class PostQueryServiceTest {
             Post post = createPost(1L);
             PostListRequest request = listRequest(5, null);
 
-            when(postRepository.findPostsWithFilters(any(), any(LocalDate.class), isNull(), any(Pageable.class)))
+            when(postRepository.findPostsWithFilters(any(), any(LocalDate.class), isNull(), any(), any(Pageable.class)))
                     .thenReturn(List.of(post));
             when(superHostService.findActiveSuperHostExposures(List.of(1L)))
                     .thenReturn(Map.of(1L, LocalDateTime.of(2026, 5, 6, 0, 0)));
@@ -165,7 +166,7 @@ class PostQueryServiceTest {
             int size = 2;
             PostListRequest request = listRequest(size, null);
 
-            when(postRepository.findPostsWithFilters(any(), any(LocalDate.class), isNull(), any(Pageable.class)))
+            when(postRepository.findPostsWithFilters(any(), any(LocalDate.class), isNull(), any(), any(Pageable.class)))
                     .thenReturn(List.of(createPost(1L), createPost(2L), createPost(3L)));
 
             PostListResponse response = postQueryService.retrieveAllWithFilter(request, null);
@@ -180,7 +181,7 @@ class PostQueryServiceTest {
             int size = 2;
             PostListRequest request = listRequest(size, null);
 
-            when(postRepository.findPostsWithFilters(any(), any(LocalDate.class), isNull(), any(Pageable.class)))
+            when(postRepository.findPostsWithFilters(any(), any(LocalDate.class), isNull(), any(), any(Pageable.class)))
                     .thenReturn(List.of(createPost(1L), createPost(2L)));
 
             PostListResponse response = postQueryService.retrieveAllWithFilter(request, null);
@@ -195,7 +196,7 @@ class PostQueryServiceTest {
             int size = 2;
             PostListRequest request = listRequest(size, null);
 
-            when(postRepository.findPostsWithFilters(any(), any(LocalDate.class), isNull(), any(Pageable.class)))
+            when(postRepository.findPostsWithFilters(any(), any(LocalDate.class), isNull(), any(), any(Pageable.class)))
                     .thenReturn(List.of(createPost(10L), createPost(5L), createPost(1L)));
 
             PostListResponse response = postQueryService.retrieveAllWithFilter(request, null);
@@ -217,7 +218,7 @@ class PostQueryServiceTest {
             ReflectionTestUtils.setField(post2, "viewCount", 50);
             ReflectionTestUtils.setField(post3, "viewCount", 20);
 
-            when(postRepository.findPostsWithFilters(any(), any(LocalDate.class), isNull(), any(Pageable.class)))
+            when(postRepository.findPostsWithFilters(any(), any(LocalDate.class), isNull(), any(), any(Pageable.class)))
                     .thenReturn(List.of(post1, post2, post3));
 
             PostListResponse response = postQueryService.retrieveAllWithFilter(request, null);
@@ -239,7 +240,7 @@ class PostQueryServiceTest {
             ReflectionTestUtils.setField(post2, "likeCount", 15);
             ReflectionTestUtils.setField(post3, "likeCount", 5);
 
-            when(postRepository.findPostsWithFilters(any(), any(LocalDate.class), isNull(), any(Pageable.class)))
+            when(postRepository.findPostsWithFilters(any(), any(LocalDate.class), isNull(), any(), any(Pageable.class)))
                     .thenReturn(List.of(post1, post2, post3));
 
             PostListResponse response = postQueryService.retrieveAllWithFilter(request, null);
@@ -257,7 +258,7 @@ class PostQueryServiceTest {
             Post post1 = createPost(10L);
             ReflectionTestUtils.setField(post1, "viewCount", 100);
 
-            when(postRepository.findPostsWithFilters(any(), any(LocalDate.class), isNull(), any(Pageable.class)))
+            when(postRepository.findPostsWithFilters(any(), any(LocalDate.class), isNull(), any(), any(Pageable.class)))
                     .thenReturn(List.of(post1));
 
             PostListResponse response = postQueryService.retrieveAllWithFilter(request, null);
@@ -282,13 +283,13 @@ class PostQueryServiceTest {
             Integer cursorValue = 150;
             PostListRequest request = listRequestWithSort(5, cursorId, cursorValue, PostSortType.VIEW);
 
-            when(postRepository.findPostsWithFilters(any(), any(LocalDate.class), eq(cursorValue), any(Pageable.class)))
+            when(postRepository.findPostsWithFilters(any(), any(LocalDate.class), eq(cursorValue), any(), any(Pageable.class)))
                     .thenReturn(List.of());
 
             postQueryService.retrieveAllWithFilter(request, null);
 
             verify(postRepository, never()).findById(any());
-            verify(postRepository).findPostsWithFilters(any(), any(LocalDate.class), eq(cursorValue), any(Pageable.class));
+            verify(postRepository).findPostsWithFilters(any(), any(LocalDate.class), eq(cursorValue), any(), any(Pageable.class));
         }
 
         @Test
@@ -296,13 +297,13 @@ class PostQueryServiceTest {
         void latestSortWithCursorPassesNullCursorValue() {
             PostListRequest request = listRequest(5, 100L);
 
-            when(postRepository.findPostsWithFilters(any(), any(LocalDate.class), isNull(), any(Pageable.class)))
+            when(postRepository.findPostsWithFilters(any(), any(LocalDate.class), isNull(), any(), any(Pageable.class)))
                     .thenReturn(List.of());
 
             postQueryService.retrieveAllWithFilter(request, null);
 
             verify(postRepository, never()).findById(any());
-            verify(postRepository).findPostsWithFilters(any(), any(LocalDate.class), isNull(), any(Pageable.class));
+            verify(postRepository).findPostsWithFilters(any(), any(LocalDate.class), isNull(), any(), any(Pageable.class));
         }
 
         @Test
@@ -310,13 +311,13 @@ class PostQueryServiceTest {
         void withoutCursorPassesNullCursorValue() {
             PostListRequest request = listRequest(5, null);
 
-            when(postRepository.findPostsWithFilters(any(), any(LocalDate.class), isNull(), any(Pageable.class)))
+            when(postRepository.findPostsWithFilters(any(), any(LocalDate.class), isNull(), any(), any(Pageable.class)))
                     .thenReturn(List.of());
 
             postQueryService.retrieveAllWithFilter(request, null);
 
             verify(postRepository, never()).findById(any());
-            verify(postRepository).findPostsWithFilters(any(), any(LocalDate.class), isNull(), any(Pageable.class));
+            verify(postRepository).findPostsWithFilters(any(), any(LocalDate.class), isNull(), any(), any(Pageable.class));
         }
 
         @Test
@@ -324,13 +325,13 @@ class PostQueryServiceTest {
         void viewSortWithoutCursorValuePassesNull() {
             PostListRequest request = listRequestWithSort(5, null, null, PostSortType.VIEW);
 
-            when(postRepository.findPostsWithFilters(any(), any(LocalDate.class), isNull(), any(Pageable.class)))
+            when(postRepository.findPostsWithFilters(any(), any(LocalDate.class), isNull(), any(), any(Pageable.class)))
                     .thenReturn(List.of());
 
             postQueryService.retrieveAllWithFilter(request, null);
 
             verify(postRepository, never()).findById(any());
-            verify(postRepository).findPostsWithFilters(any(), any(LocalDate.class), isNull(), any(Pageable.class));
+            verify(postRepository).findPostsWithFilters(any(), any(LocalDate.class), isNull(), any(), any(Pageable.class));
         }
     }
 

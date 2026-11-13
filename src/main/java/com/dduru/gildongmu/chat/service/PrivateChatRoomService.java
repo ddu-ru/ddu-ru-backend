@@ -1,5 +1,6 @@
 package com.dduru.gildongmu.chat.service;
 
+import com.dduru.gildongmu.block.service.UserBlockService;
 import com.dduru.gildongmu.chat.domain.ChatRoom;
 import com.dduru.gildongmu.chat.domain.ChatRoomMember;
 import com.dduru.gildongmu.chat.domain.enums.ChatMemberRole;
@@ -37,6 +38,7 @@ public class PrivateChatRoomService {
     private final ChatRoomMemberRepository chatRoomMemberRepository;
     private final PostRepository postRepository;
     private final UserRepository userRepository;
+    private final UserBlockService userBlockService;
 
     public PrivateChatRoomCreateResponse createOrGetRoom(Long requesterId, Long postId) {
         Post lockedPost = postRepository.getActiveByIdWithLockOrThrow(postId);
@@ -57,6 +59,7 @@ public class PrivateChatRoomService {
 
     private PrivateChatRoomCreateResponse doCreateOrGetRoom(Long requesterId, Post post, Long targetUserId) {
         validateNotSelfChat(requesterId, targetUserId);
+        userBlockService.validateNotBlocked(requesterId, targetUserId);
 
         User requester = userRepository.getByIdOrThrow(requesterId);
         User target = userRepository.getByIdOrThrow(targetUserId);
