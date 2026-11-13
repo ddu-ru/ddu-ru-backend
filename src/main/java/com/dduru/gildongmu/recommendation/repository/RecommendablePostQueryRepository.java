@@ -5,7 +5,6 @@ import com.dduru.gildongmu.profile.domain.enums.Gender;
 import com.dduru.gildongmu.recommendation.domain.QMateRecommendationPass;
 import com.dduru.gildongmu.recommendation.dto.query.DestinationPreferenceFilter;
 import com.dduru.gildongmu.recommendation.dto.query.RecommendablePostQueryResult;
-import com.dduru.gildongmu.block.domain.QUserBlock;
 import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.JPAExpressions;
@@ -16,6 +15,7 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDate;
 import java.util.List;
 
+import static com.dduru.gildongmu.block.repository.UserBlockPredicates.noBlockBetween;
 import static com.dduru.gildongmu.destination.domain.QDestination.destination;
 import static com.dduru.gildongmu.participation.domain.QParticipation.participation;
 import static com.dduru.gildongmu.post.domain.QPost.post;
@@ -82,20 +82,9 @@ public class RecommendablePostQueryRepository {
                                         report.user.id.eq(userId)
                                 )
                                 .notExists(),
-                        notBlockedBy(userId)
+                        noBlockBetween(userId, post.user.id)
                 )
                 .fetch();
-    }
-
-    private BooleanExpression notBlockedBy(Long userId) {
-        QUserBlock userBlock = new QUserBlock("recommendationUserBlock");
-        return JPAExpressions.selectOne()
-                .from(userBlock)
-                .where(
-                        userBlock.blocker.id.eq(userId).and(userBlock.blockedUser.id.eq(post.user.id))
-                                .or(userBlock.blocker.id.eq(post.user.id).and(userBlock.blockedUser.id.eq(userId)))
-                )
-                .notExists();
     }
 
     private BooleanExpression genderCondition(Gender applicantGender) {

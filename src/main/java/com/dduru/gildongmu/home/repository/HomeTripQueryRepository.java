@@ -2,7 +2,6 @@ package com.dduru.gildongmu.home.repository;
 
 import com.dduru.gildongmu.home.dto.response.SameAgeTripResponse;
 import com.dduru.gildongmu.home.dto.response.SameDestinationTripResponse;
-import com.dduru.gildongmu.block.domain.QUserBlock;
 import com.dduru.gildongmu.post.domain.enums.PostStatus;
 import com.dduru.gildongmu.recommendation.domain.UserRecommendationDestinationPreference;
 import com.dduru.gildongmu.recommendation.domain.enums.RecommendationDestinationPreferenceType;
@@ -16,6 +15,7 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDate;
 import java.util.List;
 
+import static com.dduru.gildongmu.block.repository.UserBlockPredicates.noBlockBetween;
 import static com.dduru.gildongmu.destination.domain.QDestination.destination;
 import static com.dduru.gildongmu.post.domain.QPost.post;
 import static com.dduru.gildongmu.profile.domain.QProfile.profile;
@@ -83,17 +83,6 @@ public class HomeTripQueryRepository {
                 .and(JPAExpressions.selectOne().from(report)
                         .where(report.post.id.eq(post.id), report.user.id.eq(userId))
                         .notExists())
-                .and(notBlockedBy(userId));
-    }
-
-    private BooleanExpression notBlockedBy(Long userId) {
-        QUserBlock userBlock = new QUserBlock("homeTripUserBlock");
-        return JPAExpressions.selectOne()
-                .from(userBlock)
-                .where(
-                        userBlock.blocker.id.eq(userId).and(userBlock.blockedUser.id.eq(post.user.id))
-                                .or(userBlock.blocker.id.eq(post.user.id).and(userBlock.blockedUser.id.eq(userId)))
-                )
-                .notExists();
+                .and(noBlockBetween(userId, post.user.id));
     }
 }

@@ -2,7 +2,6 @@ package com.dduru.gildongmu.home.repository;
 
 import com.dduru.gildongmu.home.dto.query.HomeSuperHostQueryResult;
 import com.dduru.gildongmu.home.dto.query.QHomeSuperHostQueryResult;
-import com.dduru.gildongmu.block.domain.QUserBlock;
 import com.dduru.gildongmu.post.domain.enums.PostStatus;
 import com.dduru.gildongmu.superhost.domain.enums.SuperHostExposureStatus;
 import com.querydsl.core.types.dsl.BooleanExpression;
@@ -16,6 +15,7 @@ import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
+import static com.dduru.gildongmu.block.repository.UserBlockPredicates.noBlockBetween;
 import static com.dduru.gildongmu.destination.domain.QDestination.destination;
 import static com.dduru.gildongmu.post.domain.QPost.post;
 import static com.dduru.gildongmu.profile.domain.QBgColor.bgColor;
@@ -83,7 +83,7 @@ public class HomeSuperHostQueryRepository {
                         post.id.in(postIds),
                         isCurrentlyVisible(now, today),
                         notReportedBy(viewerId),
-                        notBlockedBy(viewerId)
+                        noBlockBetween(viewerId, post.user.id)
                 )
                 .fetch();
     }
@@ -106,20 +106,6 @@ public class HomeSuperHostQueryRepository {
         return JPAExpressions.selectOne()
                 .from(report)
                 .where(report.post.id.eq(post.id), report.user.id.eq(viewerId))
-                .notExists();
-    }
-
-    private BooleanExpression notBlockedBy(Long viewerId) {
-        if (viewerId == null) {
-            return null;
-        }
-        QUserBlock userBlock = new QUserBlock("superHostUserBlock");
-        return JPAExpressions.selectOne()
-                .from(userBlock)
-                .where(
-                        userBlock.blocker.id.eq(viewerId).and(userBlock.blockedUser.id.eq(post.user.id))
-                                .or(userBlock.blocker.id.eq(post.user.id).and(userBlock.blockedUser.id.eq(viewerId)))
-                )
                 .notExists();
     }
 }

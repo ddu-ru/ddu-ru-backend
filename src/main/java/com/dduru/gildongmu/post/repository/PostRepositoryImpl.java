@@ -10,7 +10,6 @@ import com.dduru.gildongmu.post.dto.request.PostListRequest;
 import com.dduru.gildongmu.profile.domain.enums.Gender;
 import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.dsl.BooleanExpression;
-import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -19,8 +18,8 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDate;
 import java.util.List;
 
+import static com.dduru.gildongmu.block.repository.UserBlockPredicates.noBlockBetween;
 import static com.dduru.gildongmu.destination.domain.QDestination.destination;
-import static com.dduru.gildongmu.block.domain.QUserBlock.userBlock;
 import static com.dduru.gildongmu.post.domain.QPost.post;
 import static com.dduru.gildongmu.profile.domain.QProfile.profile;
 
@@ -51,7 +50,7 @@ public class PostRepositoryImpl implements PostRepositoryCustom {
                         recruitCapacityCondition(request.minRecruitCapacity(), request.maxRecruitCapacity()),
                         recruitmentStatusCondition(request.recruitmentStatus(), today),
                         companionTypeCondition(request.companionType()),
-                        notBlockedBy(viewerId)
+                        noBlockBetween(viewerId, post.user.id)
                 )
                 .orderBy(sortOrder(request.sort()))
                 .limit(pageable.getPageSize())
@@ -204,17 +203,5 @@ public class PostRepositoryImpl implements PostRepositoryCustom {
     private BooleanExpression companionTypeCondition(CompanionType companionType) {
         if (companionType == null) return null;
         return post.companionType.eq(companionType);
-    }
-
-    private BooleanExpression notBlockedBy(Long viewerId) {
-        if (viewerId == null) return null;
-
-        return JPAExpressions.selectOne()
-                .from(userBlock)
-                .where(
-                        userBlock.blocker.id.eq(viewerId).and(userBlock.blockedUser.id.eq(post.user.id))
-                                .or(userBlock.blocker.id.eq(post.user.id).and(userBlock.blockedUser.id.eq(viewerId)))
-                )
-                .notExists();
     }
 }
