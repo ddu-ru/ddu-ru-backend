@@ -70,7 +70,6 @@ public enum ErrorCode {
 
     // 차단 (BLOCK)
     SELF_BLOCK_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "자기 자신은 차단할 수 없습니다."),
-    USER_BLOCKED(HttpStatus.FORBIDDEN, "차단된 사용자와는 이 기능을 사용할 수 없습니다."),
 
     // 게시글 (POST)
     POST_NOT_FOUND(HttpStatus.NOT_FOUND, "게시글을 찾을 수 없습니다."),

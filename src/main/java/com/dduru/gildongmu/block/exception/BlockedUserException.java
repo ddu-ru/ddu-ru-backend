@@ -5,6 +5,6 @@ import com.dduru.gildongmu.common.exception.ErrorCode;
 
 public class BlockedUserException extends BusinessException {
     public BlockedUserException() {
-        super(ErrorCode.USER_BLOCKED);
+        super(ErrorCode.NOT_FOUND);
     }
 }

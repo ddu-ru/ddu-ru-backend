@@ -1,6 +1,6 @@
 package com.dduru.gildongmu.post.service;
 
-import com.dduru.gildongmu.block.service.UserBlockService;
+import com.dduru.gildongmu.block.policy.UserBlockPolicy;
 import com.dduru.gildongmu.chat.event.PostUpdatedEvent;
 import com.dduru.gildongmu.chat.service.GroupChatRoomService;
 import com.dduru.gildongmu.common.time.TimeProvider;
@@ -87,7 +87,7 @@ class PostServiceTest {
     @Mock private TimeProvider timeProvider;
     @Mock private S3ImageUrlValidator s3ImageUrlValidator;
     @Mock private ApplicationEventPublisher eventPublisher;
-    @Mock private UserBlockService userBlockService;
+    @Mock private UserBlockPolicy userBlockPolicy;
 
     @InjectMocks
     private PostService postService;
@@ -109,7 +109,7 @@ class PostServiceTest {
         Post post = createBasicPost(postId, owner);
         when(postRepository.getActiveByIdOrThrow(postId)).thenReturn(post);
         doThrow(new com.dduru.gildongmu.block.exception.BlockedUserException())
-                .when(userBlockService).validateNotBlocked(viewerId, owner.getId());
+                .when(userBlockPolicy).validateInteraction(viewerId, owner.getId());
 
         assertThatThrownBy(() -> postService.recordViewAndGetDetail(postId, viewerId))
                 .isInstanceOf(com.dduru.gildongmu.block.exception.BlockedUserException.class);

@@ -4,7 +4,6 @@ import com.dduru.gildongmu.block.domain.UserBlock;
 import com.dduru.gildongmu.block.dto.request.BlockedUserListRequest;
 import com.dduru.gildongmu.block.dto.response.BlockedUserListResponse;
 import com.dduru.gildongmu.block.dto.response.BlockedUserResponse;
-import com.dduru.gildongmu.block.exception.BlockedUserException;
 import com.dduru.gildongmu.block.exception.SelfBlockNotAllowedException;
 import com.dduru.gildongmu.block.repository.UserBlockRepository;
 import com.dduru.gildongmu.profile.utils.ProfileImageResolver;
@@ -85,15 +84,6 @@ class UserBlockServiceTest {
         verify(userBlockRepository).save(captor.capture());
         assertThat(captor.getValue().getBlocker()).isSameAs(blocker);
         assertThat(captor.getValue().getBlockedUser()).isSameAs(blocked);
-    }
-
-    @Test
-    @DisplayName("상대방이 나를 차단한 경우도 이용 제한 대상이다")
-    void blocksBothDirections() {
-        when(userBlockRepository.existsBetween(1L, 2L)).thenReturn(true);
-
-        assertThatThrownBy(() -> userBlockService.validateNotBlocked(1L, 2L))
-                .isInstanceOf(BlockedUserException.class);
     }
 
     @Test

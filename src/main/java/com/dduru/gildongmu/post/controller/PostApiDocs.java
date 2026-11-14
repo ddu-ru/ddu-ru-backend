@@ -38,7 +38,7 @@ public interface PostApiDocs {
 
     @Operation(summary = "게시글 상세 조회", description = "게시글 상세 정보를 조회합니다.")
     @ApiResponse(responseCode = "200", description = "조회 성공")
-    @ApiErrorResponses({ErrorCode.POST_NOT_FOUND, ErrorCode.USER_BLOCKED})
+    @ApiErrorResponses({ErrorCode.POST_NOT_FOUND, ErrorCode.NOT_FOUND})
     ResponseEntity<ApiResult<PostDetailResponse>> retrievePostDetail(
             @Parameter(description = "게시글 ID") Long postId,
             @Parameter(hidden = true) Long userId

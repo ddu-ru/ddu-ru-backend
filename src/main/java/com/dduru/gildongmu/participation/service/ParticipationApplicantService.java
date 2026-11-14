@@ -1,6 +1,6 @@
 package com.dduru.gildongmu.participation.service;
 
-import com.dduru.gildongmu.block.service.UserBlockService;
+import com.dduru.gildongmu.block.policy.UserBlockPolicy;
 import com.dduru.gildongmu.chat.domain.enums.ChatRoomStatus;
 import com.dduru.gildongmu.chat.domain.enums.ChatRoomType;
 import com.dduru.gildongmu.chat.dto.query.ChatRoomIdByPostIdQueryResult;
@@ -54,13 +54,13 @@ public class ParticipationApplicantService {
     private final ProfileRepository profileRepository;
     private final JourneyMemberRepository journeyMemberRepository;
     private final ApplicationEventPublisher eventPublisher;
-    private final UserBlockService userBlockService;
+    private final UserBlockPolicy userBlockPolicy;
 
     public ParticipationCreateResponse participate(Long userId, Long postId, ParticipationRequest request) {
         Post post = postRepository.getActiveByIdWithLockOrThrow(postId);
         User applicant = userRepository.getByIdOrThrow(userId);
 
-        userBlockService.validateNotBlocked(userId, post.getUser().getId());
+        userBlockPolicy.validateInteraction(userId, post.getUser().getId());
         validateParticipationAllowed(post, applicant);
 
         Participation participation = Participation.createParticipation(post, applicant, request.message());

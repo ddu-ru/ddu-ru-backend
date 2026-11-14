@@ -4,7 +4,6 @@ import com.dduru.gildongmu.block.domain.UserBlock;
 import com.dduru.gildongmu.block.dto.request.BlockedUserListRequest;
 import com.dduru.gildongmu.block.dto.response.BlockedUserListResponse;
 import com.dduru.gildongmu.block.dto.response.BlockedUserResponse;
-import com.dduru.gildongmu.block.exception.BlockedUserException;
 import com.dduru.gildongmu.block.exception.SelfBlockNotAllowedException;
 import com.dduru.gildongmu.block.repository.UserBlockRepository;
 import com.dduru.gildongmu.profile.dto.response.ProfileImageInfo;
@@ -60,21 +59,6 @@ public class UserBlockService {
                 .map(block -> toResponse(block.getBlockedUser()))
                 .toList();
         return BlockedUserListResponse.of(users, hasNext, nextCursor);
-    }
-
-    @Transactional(readOnly = true)
-    public boolean isBlockedBetween(Long firstUserId, Long secondUserId) {
-        if (firstUserId == null || secondUserId == null || firstUserId.equals(secondUserId)) {
-            return false;
-        }
-        return userBlockRepository.existsBetween(firstUserId, secondUserId);
-    }
-
-    @Transactional(readOnly = true)
-    public void validateNotBlocked(Long firstUserId, Long secondUserId) {
-        if (isBlockedBetween(firstUserId, secondUserId)) {
-            throw new BlockedUserException();
-        }
     }
 
     private void validateNotSelf(Long blockerUserId, Long blockedUserId) {

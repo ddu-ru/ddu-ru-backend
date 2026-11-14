@@ -1,6 +1,6 @@
 package com.dduru.gildongmu.chat.service;
 
-import com.dduru.gildongmu.block.service.UserBlockService;
+import com.dduru.gildongmu.block.policy.UserBlockPolicy;
 import com.dduru.gildongmu.chat.domain.ChatMessage;
 import com.dduru.gildongmu.chat.domain.ChatRoom;
 import com.dduru.gildongmu.chat.domain.ChatRoomMember;
@@ -69,7 +69,7 @@ class ChatMessageSendServiceTest {
     private UserRepository userRepository;
 
     @Mock
-    private UserBlockService userBlockService;
+    private UserBlockPolicy userBlockPolicy;
 
     @Mock
     private ProfileImageResolver profileImageResolver;
@@ -95,7 +95,7 @@ class ChatMessageSendServiceTest {
                 chatRoomMemberRepository,
                 chatMessageRepository,
                 userRepository,
-                userBlockService,
+                userBlockPolicy,
                 profileImageResolver,
                 simpMessagingTemplate,
                 chatSystemMessageFactory,
