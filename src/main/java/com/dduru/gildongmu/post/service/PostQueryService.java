@@ -82,7 +82,13 @@ public class PostQueryService {
                 .map(p -> MyPagePostSummaryResponse.from(p, today))
                 .toList();
         long totalPostCount = postRepository.countTotalPostsByUserId(userId);
-        return MyPagePostListResponse.of(summaries, hasNext, totalPostCount);
+        int unusedSuperHostTicketCount = superHostService.countUnusedTickets(userId);
+        return MyPagePostListResponse.of(
+                summaries,
+                hasNext,
+                totalPostCount,
+                unusedSuperHostTicketCount
+        );
     }
 
     public MyPageLikedPostListResponse retrieveMyLikedPosts(Long userId, MyPageLikedPostListRequest request) {

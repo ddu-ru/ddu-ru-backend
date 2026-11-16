@@ -67,6 +67,7 @@ class PostQueryServiceTest {
     void setUp() {
         lenient().when(timeProvider.today()).thenReturn(TODAY);
         lenient().when(superHostService.findActiveSuperHostExposures(any())).thenReturn(Map.of());
+        lenient().when(superHostService.countUnusedTickets(any())).thenReturn(0);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -485,6 +486,30 @@ class PostQueryServiceTest {
     @Nested
     @DisplayName("내가 작성한 게시글")
     class MyPosts {
+
+        @Test
+        @DisplayName("카드 정보와 미사용 슈퍼호스트 티켓 수를 반환한다")
+        void returnsCardDetailsAndUnusedSuperHostTicketCount() {
+            Post post = createPost(1L);
+            ReflectionTestUtils.setField(post, "recruitCount", 2);
+            ReflectionTestUtils.setField(post, "recruitCapacity", 4);
+            ReflectionTestUtils.setField(post, "photoUrl", "https://example.com/post.png");
+            ReflectionTestUtils.setField(post, "viewCount", 1242);
+            ReflectionTestUtils.setField(post, "likeCount", 34);
+            when(postRepository.findPostsByUserId(eq(1L), eq(MyPagePostFilter.ALL), isNull(), any(Pageable.class), eq(TODAY)))
+                    .thenReturn(List.of(post));
+            when(postRepository.countTotalPostsByUserId(1L)).thenReturn(1L);
+            when(superHostService.countUnusedTickets(1L)).thenReturn(3);
+
+            MyPagePostListResponse response = postQueryService.retrieveMyPosts(
+                    1L, myPageRequest(null, 10, MyPagePostFilter.ALL)
+            );
+
+            assertThat(response.unusedSuperHostTicketCount()).isEqualTo(3);
+            assertThat(response.posts().get(0))
+                    .extracting("recruitCount", "recruitCapacity", "photoUrl", "viewCount", "likeCount")
+                    .containsExactly(2, 4, "https://example.com/post.png", 1242, 34);
+        }
 
         @Test
         @DisplayName("결과가 있으면 게시글 목록과 nextCursor를 반환한다")
