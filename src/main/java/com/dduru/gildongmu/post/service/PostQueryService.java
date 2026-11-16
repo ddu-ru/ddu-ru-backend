@@ -96,8 +96,13 @@ public class PostQueryService {
         List<PostLike> postLikes = postLikeRepository.findLikedPostsByUserIdWithCursor(userId, request.cursor(), pageable);
         boolean hasNext = postLikes.size() > request.size();
         if (hasNext) postLikes = postLikes.subList(0, request.size());
+        List<Long> postIds = postLikes.stream().map(like -> like.getPost().getId()).toList();
+        Map<Long, LocalDateTime> superHostExposures = superHostService.findActiveSuperHostExposures(postIds);
         List<MyPageLikedPostSummaryResponse> summaries = postLikes.stream()
-                .map(like -> MyPageLikedPostSummaryResponse.from(like.getPost()))
+                .map(like -> MyPageLikedPostSummaryResponse.from(
+                        like.getPost(),
+                        superHostExposures.containsKey(like.getPost().getId())
+                ))
                 .toList();
         Long lastLikeId = postLikes.isEmpty() ? null : postLikes.get(postLikes.size() - 1).getId();
         return MyPageLikedPostListResponse.of(summaries, hasNext, lastLikeId);

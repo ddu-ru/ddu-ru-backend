@@ -26,6 +26,8 @@ public interface PostLikeRepository extends JpaRepository<PostLike, Long> {
             SELECT pl FROM PostLike pl
             JOIN FETCH pl.post post
             JOIN FETCH post.destination
+            JOIN FETCH post.user author
+            JOIN FETCH author.profile
             WHERE pl.user.id = :userId
               AND post.isDeleted = false
               AND (:cursor IS NULL OR pl.id < :cursor)

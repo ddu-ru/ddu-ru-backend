@@ -583,6 +583,32 @@ class PostQueryServiceTest {
     class MyLikedPosts {
 
         @Test
+        @DisplayName("카드 정보와 작성자의 슈퍼호스트 여부를 반환한다")
+        void returnsCardDetailsAndAuthorSuperHostStatus() {
+            Post post = createPost(1L);
+            ReflectionTestUtils.setField(post, "recruitCount", 2);
+            ReflectionTestUtils.setField(post, "recruitCapacity", 4);
+            ReflectionTestUtils.setField(post, "photoUrl", "https://example.com/post.png");
+            PostLike postLike = createPostLike(10L, post);
+            when(postLikeRepository.findLikedPostsByUserIdWithCursor(eq(1L), isNull(), any(Pageable.class)))
+                    .thenReturn(List.of(postLike));
+            when(superHostService.findActiveSuperHostExposures(List.of(1L)))
+                    .thenReturn(Map.of(1L, LocalDateTime.of(2026, 5, 8, 12, 0)));
+
+            MyPageLikedPostListResponse response = postQueryService.retrieveMyLikedPosts(
+                    1L, likedPostRequest(null, 10)
+            );
+
+            assertThat(response.posts().get(0).recruitCount()).isEqualTo(2);
+            assertThat(response.posts().get(0).recruitCapacity()).isEqualTo(4);
+            assertThat(response.posts().get(0).preferredGender()).isEqualTo(Gender.U);
+            assertThat(response.posts().get(0).companionType()).isEqualTo(CompanionType.FULL);
+            assertThat(response.posts().get(0).photoUrl()).isEqualTo("https://example.com/post.png");
+            assertThat(response.posts().get(0).author().nickname()).isEqualTo("닉네임1");
+            assertThat(response.posts().get(0).author().isSuperHost()).isTrue();
+        }
+
+        @Test
         @DisplayName("결과가 있으면 찜한 게시글 목록과 nextCursor를 반환한다")
         void returnsLikedPostsWithNextCursor() {
             Long userId = 1L;
