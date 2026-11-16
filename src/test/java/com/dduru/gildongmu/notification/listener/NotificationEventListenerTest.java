@@ -340,12 +340,12 @@ class NotificationEventListenerTest {
     class HandlePostUpdated {
 
         @Test
-        @DisplayName("찜한 유저 전원에게 알림을 저장한다")
+        @DisplayName("차단 관계가 제외된 찜 유저에게 알림을 저장한다")
         void savesNotificationsForAllLikedUsers() {
             Long postId = 1L;
             List<Long> recipientIds = List.of(20L, 30L);
 
-            when(postLikeRepository.findUserIdsByPostId(postId)).thenReturn(recipientIds);
+            when(postLikeRepository.findPostUpdateNotificationRecipientIds(postId)).thenReturn(recipientIds);
             when(userRepository.getReferenceById(20L)).thenReturn(createUser(20L));
             when(userRepository.getReferenceById(30L)).thenReturn(createUser(30L));
 
@@ -369,7 +369,7 @@ class NotificationEventListenerTest {
         @Test
         @DisplayName("찜한 유저가 없으면 저장하지 않는다")
         void skipsWhenNoLikedUsers() {
-            when(postLikeRepository.findUserIdsByPostId(any())).thenReturn(List.of());
+            when(postLikeRepository.findPostUpdateNotificationRecipientIds(any())).thenReturn(List.of());
 
             listener.handlePostUpdated(new PostUpdatedEvent(1L));
 
@@ -379,7 +379,7 @@ class NotificationEventListenerTest {
         @Test
         @DisplayName("알림 저장 중 예외가 발생해도 예외가 전파되지 않는다")
         void exceptionIsSwallowed() {
-            when(postLikeRepository.findUserIdsByPostId(any())).thenThrow(new RuntimeException("DB 오류"));
+            when(postLikeRepository.findPostUpdateNotificationRecipientIds(any())).thenThrow(new RuntimeException("DB 오류"));
 
             assertThatCode(() ->
                     listener.handlePostUpdated(new PostUpdatedEvent(1L))

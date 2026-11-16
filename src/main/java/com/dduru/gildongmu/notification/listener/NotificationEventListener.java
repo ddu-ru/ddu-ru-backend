@@ -143,7 +143,7 @@ public class NotificationEventListener {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handlePostUpdated(PostUpdatedEvent event) {
         try {
-            List<Long> recipientIds = postLikeRepository.findUserIdsByPostId(event.postId());
+            List<Long> recipientIds = postLikeRepository.findPostUpdateNotificationRecipientIds(event.postId());
             String body = "관심 있는 모집글에 변경이 있습니다.";
             notifyUsers(recipientIds, NotificationType.POST_UPDATED, body,
                     ResourceType.POST, event.postId(), "찜한 글 업데이트");

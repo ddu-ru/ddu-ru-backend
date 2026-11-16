@@ -40,6 +40,7 @@
 - FCM 푸시는 푸시 수신 설정이 켜진 사용자에게만 발송한다.
 - FCM 발송 실패는 인앱 알림 저장이나 원래 도메인 동작에 영향을 주지 않는다.
 - 채팅 메시지는 인앱 알림함에 저장하지 않고 FCM 푸시만 발송한다.
+- `POST_UPDATED`는 게시글 작성자와 양방향 차단 관계가 없는 찜 사용자에게만 저장·발송한다.
 
 ### 차단 관계와 공동 여정 알림
 
@@ -72,7 +73,7 @@
 | `MATCH_APPROVED` | 신청자 1명 | 이벤트에 `applicantUserId` 포함 |
 | `JOURNEY_NOTICE` | 여정 ACTIVE 멤버 전원 (행위자 제외) | 여정 ACTIVE 멤버 기준 |
 | `SCHEDULE_CREATED / UPDATED / CANCELED` | 여정 ACTIVE 멤버 전원 (행위자 제외) | 여정 ACTIVE 멤버 기준 |
-| `POST_UPDATED` | 해당 모집글을 찜한 유저 전원 | 해당 모집글을 찜한 유저 기준 |
+| `POST_UPDATED` | 해당 모집글을 찜하고 작성자와 차단 관계가 없는 유저 | 찜 사용자 조회 단계에서 양방향 차단 제외 |
 | `TRIP_UPCOMING` | 여정 ACTIVE 멤버 전원 | 스케줄러에서 여정 ACTIVE 멤버 기준 |
 
 > 행위자 본인은 항상 수신자에서 제외된다. (`TRIP_UPCOMING` 제외)
