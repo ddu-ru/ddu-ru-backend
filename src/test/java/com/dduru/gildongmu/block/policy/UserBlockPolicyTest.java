@@ -1,8 +1,7 @@
 package com.dduru.gildongmu.block.policy;
 
-import com.dduru.gildongmu.block.exception.BlockedUserException;
 import com.dduru.gildongmu.block.repository.UserBlockRepository;
-import com.dduru.gildongmu.common.exception.ErrorCode;
+import com.dduru.gildongmu.post.exception.PostNotFoundException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,9 +28,8 @@ class UserBlockPolicyTest {
     void rejectsBlockedInteractionInEitherDirection() {
         when(userBlockRepository.existsBetween(1L, 2L)).thenReturn(true);
 
-        assertThatThrownBy(() -> userBlockPolicy.validateInteraction(1L, 2L))
-                .isInstanceOfSatisfying(BlockedUserException.class,
-                        exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.NOT_FOUND));
+        assertThatThrownBy(() -> userBlockPolicy.validateInteraction(1L, 2L, PostNotFoundException::new))
+                .isInstanceOf(PostNotFoundException.class);
     }
 
     @Test
@@ -39,7 +37,7 @@ class UserBlockPolicyTest {
     void allowsInteractionWithoutBlock() {
         when(userBlockRepository.existsBetween(1L, 2L)).thenReturn(false);
 
-        userBlockPolicy.validateInteraction(1L, 2L);
+        userBlockPolicy.validateInteraction(1L, 2L, PostNotFoundException::new);
 
         verify(userBlockRepository).existsBetween(1L, 2L);
     }

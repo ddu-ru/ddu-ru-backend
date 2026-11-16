@@ -38,7 +38,6 @@ public interface ParticipationApiDocs {
             ErrorCode.RECRUITMENT_FULL,
             ErrorCode.DUPLICATE_PARTICIPATION,
             ErrorCode.SELF_PARTICIPATION_NOT_ALLOWED,
-            ErrorCode.NOT_FOUND,
             ErrorCode.USER_NOT_FOUND,
             ErrorCode.UNAUTHORIZED
     })
@@ -59,7 +58,6 @@ public interface ParticipationApiDocs {
             ErrorCode.RECRUITMENT_CLOSED,
             ErrorCode.RECRUITMENT_FULL,
             ErrorCode.PARTICIPATION_CONTACT_NOT_ALLOWED,
-            ErrorCode.NOT_FOUND,
             ErrorCode.USER_NOT_FOUND,
             ErrorCode.UNAUTHORIZED
     })
@@ -79,7 +77,6 @@ public interface ParticipationApiDocs {
             ErrorCode.RECRUITMENT_CLOSED,
             ErrorCode.RECRUITMENT_FULL,
             ErrorCode.PARTICIPATION_APPROVAL_NOT_ALLOWED,
-            ErrorCode.NOT_FOUND,
             ErrorCode.USER_NOT_FOUND,
             ErrorCode.CHAT_ROOM_NOT_FOUND,
             ErrorCode.CHAT_ROOM_CLOSED,

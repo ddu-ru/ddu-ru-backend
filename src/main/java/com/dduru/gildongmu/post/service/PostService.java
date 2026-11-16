@@ -26,6 +26,7 @@ import com.dduru.gildongmu.post.dto.response.ParticipantInfo;
 import com.dduru.gildongmu.post.dto.response.PostCreateResponse;
 import com.dduru.gildongmu.post.dto.response.PostDetailResponse;
 import com.dduru.gildongmu.post.exception.PostAccessDeniedException;
+import com.dduru.gildongmu.post.exception.PostNotFoundException;
 import com.dduru.gildongmu.post.repository.PostRepository;
 import com.dduru.gildongmu.profile.utils.ProfileImageResolver;
 import com.dduru.gildongmu.superhost.service.SuperHostService;
@@ -120,7 +121,7 @@ public class PostService {
 
     public PostDetailResponse recordViewAndGetDetail(Long postId, Long currentUserId) {
         Post post = postRepository.getActiveByIdOrThrow(postId);
-        userBlockPolicy.validateInteraction(currentUserId, post.getUser().getId());
+        userBlockPolicy.validateInteraction(currentUserId, post.getUser().getId(), PostNotFoundException::new);
         postRepository.incrementViewCount(postId);
         return buildDetailResponse(postRepository.getActiveByIdOrThrow(postId), currentUserId);
     }
@@ -128,13 +129,13 @@ public class PostService {
     @Transactional(readOnly = true)
     public PostDetailResponse getDetail(Long postId, Long currentUserId) {
         Post post = postRepository.getActiveByIdOrThrow(postId);
-        userBlockPolicy.validateInteraction(currentUserId, post.getUser().getId());
+        userBlockPolicy.validateInteraction(currentUserId, post.getUser().getId(), PostNotFoundException::new);
         return buildDetailResponse(post, currentUserId);
     }
 
     @Transactional(readOnly = true)
     public PostDetailResponse getDetail(Post post, Long currentUserId) {
-        userBlockPolicy.validateInteraction(currentUserId, post.getUser().getId());
+        userBlockPolicy.validateInteraction(currentUserId, post.getUser().getId(), PostNotFoundException::new);
         return buildDetailResponse(post, currentUserId);
     }
 

@@ -65,8 +65,7 @@ public interface ChatApiDocs {
             ErrorCode.POST_NOT_FOUND,
             ErrorCode.USER_NOT_FOUND,
             ErrorCode.UNAUTHORIZED,
-            ErrorCode.NOT_SELF_CHAT,
-            ErrorCode.NOT_FOUND
+            ErrorCode.NOT_SELF_CHAT
     })
     ResponseEntity<ApiResult<PrivateChatRoomCreateResponse>> createPrivateRoom(
             @Parameter(hidden = true) Long userId,

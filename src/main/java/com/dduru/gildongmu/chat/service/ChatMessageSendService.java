@@ -153,7 +153,11 @@ public class ChatMessageSendService {
         }
         chatRoomMemberRepository.findUserIdsByRoomId(room.getId()).stream()
                 .filter(memberUserId -> !memberUserId.equals(senderUserId))
-                .forEach(memberUserId -> userBlockPolicy.validateInteraction(senderUserId, memberUserId));
+                .forEach(memberUserId -> userBlockPolicy.validateInteraction(
+                        senderUserId,
+                        memberUserId,
+                        ChatRoomNotFoundException::new
+                ));
     }
 
     /**

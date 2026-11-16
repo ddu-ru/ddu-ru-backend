@@ -108,11 +108,11 @@ class PostServiceTest {
         User owner = createUser(2L, "owner");
         Post post = createBasicPost(postId, owner);
         when(postRepository.getActiveByIdOrThrow(postId)).thenReturn(post);
-        doThrow(new com.dduru.gildongmu.block.exception.BlockedUserException())
-                .when(userBlockPolicy).validateInteraction(viewerId, owner.getId());
+        doThrow(new com.dduru.gildongmu.post.exception.PostNotFoundException())
+                .when(userBlockPolicy).validateInteraction(eq(viewerId), eq(owner.getId()), any());
 
         assertThatThrownBy(() -> postService.recordViewAndGetDetail(postId, viewerId))
-                .isInstanceOf(com.dduru.gildongmu.block.exception.BlockedUserException.class);
+                .isInstanceOf(com.dduru.gildongmu.post.exception.PostNotFoundException.class);
 
         verify(postRepository, never()).incrementViewCount(postId);
     }

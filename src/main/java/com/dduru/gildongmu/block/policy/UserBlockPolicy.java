@@ -1,10 +1,12 @@
 package com.dduru.gildongmu.block.policy;
 
-import com.dduru.gildongmu.block.exception.BlockedUserException;
 import com.dduru.gildongmu.block.repository.UserBlockRepository;
+import com.dduru.gildongmu.common.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.function.Supplier;
 
 @Component
 @RequiredArgsConstructor
@@ -20,9 +22,13 @@ public class UserBlockPolicy {
         return userBlockRepository.existsBetween(firstUserId, secondUserId);
     }
 
-    public void validateInteraction(Long firstUserId, Long secondUserId) {
+    public void validateInteraction(
+            Long firstUserId,
+            Long secondUserId,
+            Supplier<? extends BusinessException> notFoundExceptionSupplier
+    ) {
         if (isBlockedBetween(firstUserId, secondUserId)) {
-            throw new BlockedUserException();
+            throw notFoundExceptionSupplier.get();
         }
     }
 }

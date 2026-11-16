@@ -19,6 +19,7 @@ import com.dduru.gildongmu.participation.exception.ParticipationApplicantAccessD
 import com.dduru.gildongmu.participation.exception.SelfParticipationNotAllowedException;
 import com.dduru.gildongmu.participation.repository.ParticipationRepository;
 import com.dduru.gildongmu.post.domain.Post;
+import com.dduru.gildongmu.post.exception.PostNotFoundException;
 import com.dduru.gildongmu.post.dto.response.MyParticipationStatus;
 import com.dduru.gildongmu.post.dto.response.ParticipantInfo;
 import com.dduru.gildongmu.post.repository.PostRepository;
@@ -60,7 +61,7 @@ public class ParticipationApplicantService {
         Post post = postRepository.getActiveByIdWithLockOrThrow(postId);
         User applicant = userRepository.getByIdOrThrow(userId);
 
-        userBlockPolicy.validateInteraction(userId, post.getUser().getId());
+        userBlockPolicy.validateInteraction(userId, post.getUser().getId(), PostNotFoundException::new);
         validateParticipationAllowed(post, applicant);
 
         Participation participation = Participation.createParticipation(post, applicant, request.message());

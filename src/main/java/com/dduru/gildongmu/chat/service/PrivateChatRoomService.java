@@ -11,6 +11,7 @@ import com.dduru.gildongmu.chat.exception.NotSelfChatException;
 import com.dduru.gildongmu.chat.repository.ChatRoomMemberRepository;
 import com.dduru.gildongmu.chat.repository.ChatRoomRepository;
 import com.dduru.gildongmu.post.domain.Post;
+import com.dduru.gildongmu.post.exception.PostNotFoundException;
 import com.dduru.gildongmu.post.repository.PostRepository;
 import com.dduru.gildongmu.user.domain.User;
 import com.dduru.gildongmu.user.repository.UserRepository;
@@ -59,7 +60,7 @@ public class PrivateChatRoomService {
 
     private PrivateChatRoomCreateResponse doCreateOrGetRoom(Long requesterId, Post post, Long targetUserId) {
         validateNotSelfChat(requesterId, targetUserId);
-        userBlockPolicy.validateInteraction(requesterId, targetUserId);
+        userBlockPolicy.validateInteraction(requesterId, targetUserId, PostNotFoundException::new);
 
         User requester = userRepository.getByIdOrThrow(requesterId);
         User target = userRepository.getByIdOrThrow(targetUserId);
