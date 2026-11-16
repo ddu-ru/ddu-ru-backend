@@ -90,9 +90,13 @@ public class ParticipationApplicantService {
     }
 
     @Transactional(readOnly = true)
-    public List<ParticipantInfo> getParticipantsForPostDetail(Post post, LocalDate today) {
+    public List<ParticipantInfo> getParticipantsForPostDetail(Post post, LocalDate today, Long viewerUserId) {
         return journeyMemberRepository
-                .findByPostIdAndStatusWithMemberProfiles(post.getId(), JourneyMemberStatus.ACTIVE).stream()
+                .findVisibleByPostIdAndStatusWithMemberProfiles(
+                        post.getId(),
+                        JourneyMemberStatus.ACTIVE,
+                        viewerUserId
+                ).stream()
                 .map(journeyMember -> ParticipantInfo.from(journeyMember.getUser(), journeyMember.isHost(), profileImageResolver, today))
                 .toList();
     }
