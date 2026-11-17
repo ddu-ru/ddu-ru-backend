@@ -3,7 +3,6 @@ package com.dduru.gildongmu.profile.dto.response;
 import com.dduru.gildongmu.profile.domain.Profile;
 import com.dduru.gildongmu.profile.domain.enums.Gender;
 import com.dduru.gildongmu.profile.utils.ProfileImageResolver;
-import com.dduru.gildongmu.recommendation.dto.response.TravelPreferenceResponse;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDate;
@@ -26,29 +25,16 @@ public record MyProfileResponse(
         LocalDate birthday,
 
         @Schema(description = "전화번호. 미설정 시 null", example = "01012345678", nullable = true)
-        String phoneNumber,
-
-        @Schema(description = "선호 여행지와 여행 가능 날짜")
-        TravelPreferenceResponse travelPreferences,
-
-        @Schema(description = "여행 스타일 요약. 설문 미완료 시 null", nullable = true)
-        TravelStyleSummaryResponse travelStyleSummary
+        String phoneNumber
 ) {
-    public static MyProfileResponse of(
-            Profile profile,
-            ProfileImageResolver profileImageResolver,
-            TravelPreferenceResponse travelPreferences,
-            TravelStyleSummaryResponse travelStyleSummary
-    ) {
+    public static MyProfileResponse of(Profile profile, ProfileImageResolver profileImageResolver) {
         return new MyProfileResponse(
                 profile.getNickname(),
                 profile.getBio(),
                 ProfileImageInfo.from(profile, profileImageResolver),
                 profile.getGender(),
                 profile.getBirthday(),
-                profile.getPhoneNumber(),
-                travelPreferences,
-                travelStyleSummary
+                profile.getPhoneNumber()
         );
     }
 }

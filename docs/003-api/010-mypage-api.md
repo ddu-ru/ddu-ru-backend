@@ -4,9 +4,9 @@
 
 ## 마이페이지 메인
 
-`GET /api/v1/users/me/profile`
+`GET /api/v1/users/me/overview`
 
-기존 프로필 정보와 함께 다음 정보를 반환합니다.
+마이페이지 홈에 필요한 프로필 표시 정보와 함께 다음 정보를 반환합니다.
 
 - `travelPreferences.destinationPreferences`: 선호 여행지. 설정이 없으면 빈 배열
 - `travelPreferences.availableDates`: 여행 가능 날짜. 설정이 없으면 빈 배열
@@ -14,6 +14,8 @@
 - 설문을 완료하지 않아 아바타 성향이 없으면 `travelStyleSummary`는 `null`
 
 여행 선호를 수정할 때는 기존 `PATCH /api/v1/users/me/travel-preferences`를 사용합니다.
+
+성별, 생년월일, 전화번호 등 개인 상세 정보는 `GET /api/v1/users/me/profile`에서 별도로 조회합니다.
 
 ## 작성글 관리
 

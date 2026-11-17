@@ -5,6 +5,7 @@ import com.dduru.gildongmu.common.exception.GlobalExceptionHandler;
 import com.dduru.gildongmu.post.service.PostQueryService;
 import com.dduru.gildongmu.recommendation.dto.request.TravelPreferenceUpdateRequest;
 import com.dduru.gildongmu.recommendation.service.TravelPreferenceService;
+import com.dduru.gildongmu.user.service.MyPageOverviewQueryService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -31,7 +32,11 @@ class TravelPreferencePatchControllerTest {
     @BeforeEach
     void setUp() {
         service = mock(TravelPreferenceService.class);
-        mvc = standaloneSetup(new UserController(mock(PostQueryService.class), service))
+        mvc = standaloneSetup(new UserController(
+                        mock(PostQueryService.class),
+                        service,
+                        mock(MyPageOverviewQueryService.class)
+                ))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .setCustomArgumentResolvers(new HandlerMethodArgumentResolver() {
                     @Override

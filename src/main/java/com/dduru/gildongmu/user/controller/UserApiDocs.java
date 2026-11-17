@@ -9,6 +9,7 @@ import com.dduru.gildongmu.post.dto.response.MyPageLikedPostListResponse;
 import com.dduru.gildongmu.post.dto.response.MyPagePostListResponse;
 import com.dduru.gildongmu.recommendation.dto.request.TravelPreferenceUpdateRequest;
 import com.dduru.gildongmu.recommendation.dto.response.TravelPreferenceResponse;
+import com.dduru.gildongmu.user.dto.response.MyPageOverviewResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -24,6 +25,21 @@ import org.springframework.http.ResponseEntity;
 
 @Tag(name = "User", description = "사용자 마이페이지 API")
 public interface UserApiDocs {
+
+    @Operation(
+            summary = "마이페이지 홈 요약 조회",
+            description = "마이페이지 홈에 필요한 프로필 표시 정보, 선호 여행지, 여행 가능 날짜, 여행 스타일 요약을 조회합니다. " +
+                    "성별, 생년월일, 전화번호는 포함하지 않습니다. 설문 미완료 시 travelStyleSummary는 null입니다.",
+            security = @SecurityRequirement(name = "JWT")
+    )
+    @ApiResponse(responseCode = "200", description = "조회 성공")
+    @ApiErrorResponses({
+            ErrorCode.UNAUTHORIZED,
+            ErrorCode.PROFILE_NOT_FOUND
+    })
+    ResponseEntity<ApiResult<MyPageOverviewResponse>> retrieveMyPageOverview(
+            @Parameter(hidden = true) Long userId
+    );
 
     @Operation(
             summary = "내가 작성한 게시글 목록 조회",
