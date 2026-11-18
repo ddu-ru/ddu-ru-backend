@@ -14,6 +14,7 @@ Swagger보다 상세한 설계 배경, 처리 흐름, 테스트 케이스가 필
 | [고객센터 FAQ 및 문의 API](./009-customer-support.md) | FAQ 검색, 전체 내 문의 조회·수정, 관리자 답변과 사진 업로드 |
 | [마이페이지 API 연동 가이드](./010-mypage-api.md) | 프로필·여행 선호·여행 스타일과 작성글·찜 목록 화면의 응답 계약 |
 | [사용자 차단 API](./011-user-block.md) | 차단·해제와 차단 목록 커서 페이지, 서비스 제한 기준 |
+| [게시글 공유 및 Android App Link 연동 가이드](./012-post-share-android-app-link.md) | 게시글 공유 URL, Android App Link, Sharesheet와 운영 인증서 설정 |
 
 ## 작성 기준
 
