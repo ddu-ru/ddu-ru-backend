@@ -2,7 +2,7 @@
 name: "✨ feature template"
 about: 신규 기능 추가 이슈
 title: "[FEAT]"
-labels: "\U0001F527 BE, ✨ feature"
+labels: "✨ feature"
 assignees: ''
 
 ---
