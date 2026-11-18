@@ -37,12 +37,19 @@ class PostShareControllerTest {
         PostShareView post = new PostShareView(
                 101L,
                 "제주도 동행 구해요",
+                "제주도 서쪽을 함께 여행해요.",
                 "https://cdn.example.com/post.jpg",
                 "제주",
                 "2026. 7. 10. - 2026. 7. 12.",
+                "2박 3일",
                 2,
                 4,
                 "모집 중",
+                "전체 동행",
+                "20-29세 · 성별 무관",
+                "2026.06.29",
+                128,
+                java.util.List.of("힐링", "맛집"),
                 "제주 · 2026. 7. 10. - 2026. 7. 12. · 2/4명 · 모집 중"
         );
         when(postShareService.getShareView(101L)).thenReturn(post);

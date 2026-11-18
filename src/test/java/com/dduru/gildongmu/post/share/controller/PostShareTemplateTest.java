@@ -18,12 +18,19 @@ class PostShareTemplateTest {
         PostShareView post = new PostShareView(
                 101L,
                 "제주 <동행> & 여행",
+                "제주도 서쪽을 천천히 여행해요.",
                 "https://cdn.example.com/post.jpg",
                 "제주",
                 "2026. 7. 10. - 2026. 7. 12.",
+                "2박 3일",
                 2,
                 4,
                 "모집 중",
+                "전체 동행",
+                "20-29세 · 성별 무관",
+                "2026.06.29",
+                128,
+                java.util.List.of("힐링", "맛집"),
                 "제주 & 서귀포 · 2/4명"
         );
         Context context = new Context();
@@ -37,6 +44,7 @@ class PostShareTemplateTest {
         assertThat(html).contains("content=\"제주 &amp; 서귀포 · 2/4명\"");
         assertThat(html).contains("content=\"제주 &lt;동행&gt; &amp; 여행\"");
         assertThat(html).contains("rel=\"canonical\" href=\"https://api.dduru.app/share/posts/101\"");
+        assertThat(html).contains("여행 소개", "핵심 정보", "해시태그", "전체 동행", "20-29세 · 성별 무관");
         assertThat(html).contains("앱 출시 준비 중");
     }
 

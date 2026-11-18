@@ -1,6 +1,7 @@
 package com.dduru.gildongmu.post.share.service;
 
 import com.dduru.gildongmu.common.time.TimeProvider;
+import com.dduru.gildongmu.common.util.JsonConverter;
 import com.dduru.gildongmu.destination.domain.Destination;
 import com.dduru.gildongmu.post.domain.Post;
 import com.dduru.gildongmu.post.repository.PostRepository;
@@ -29,6 +30,9 @@ class PostShareServiceTest {
     @Mock
     private TimeProvider timeProvider;
 
+    @Mock
+    private JsonConverter jsonConverter;
+
     @InjectMocks
     private PostShareService postShareService;
 
@@ -40,6 +44,7 @@ class PostShareServiceTest {
         Post post = createPost(postId);
         when(postRepository.getActiveByIdOrThrow(postId)).thenReturn(post);
         when(timeProvider.today()).thenReturn(today);
+        when(jsonConverter.convertJsonToList("[]")).thenReturn(java.util.List.of("힐링", "맛집"));
 
         PostShareView result = postShareService.getShareView(postId);
 
@@ -47,7 +52,11 @@ class PostShareServiceTest {
         assertThat(result.title()).isEqualTo("제주도 2박 3일 동행 구해요");
         assertThat(result.destination()).isEqualTo("제주");
         assertThat(result.travelPeriod()).isEqualTo("2026. 7. 10. - 2026. 7. 12.");
+        assertThat(result.tripDuration()).isEqualTo("2박 3일");
         assertThat(result.recruitmentStatus()).isEqualTo("모집 중");
+        assertThat(result.companionType()).isEqualTo("전체 동행");
+        assertThat(result.ageCondition()).isEqualTo("연령 무관 · 성별 무관");
+        assertThat(result.tags()).containsExactly("힐링", "맛집");
         verify(postRepository, never()).incrementViewCount(postId);
     }
 
