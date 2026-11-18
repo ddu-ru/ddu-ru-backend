@@ -75,7 +75,14 @@ public class PostQueryService {
         LocalDate today = today();
         Pageable pageable = PageRequest.of(0, request.size() + 1);
         MyPagePostFilter status = Objects.requireNonNullElse(request.status(), MyPagePostFilter.ALL);
-        List<Post> posts = postRepository.findPostsByUserId(userId, status, request.cursor(), pageable, today);
+        List<Post> posts = postRepository.findPostsByUserId(
+                userId,
+                status,
+                request.cursor(),
+                pageable,
+                today,
+                request.sort()
+        );
         boolean hasNext = posts.size() > request.size();
         if (hasNext) posts = posts.subList(0, request.size());
         List<MyPagePostSummaryResponse> summaries = posts.stream()

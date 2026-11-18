@@ -7,6 +7,7 @@ import com.dduru.gildongmu.like.repository.PostLikeRepository;
 import com.dduru.gildongmu.post.domain.Post;
 import com.dduru.gildongmu.post.domain.enums.CompanionType;
 import com.dduru.gildongmu.post.domain.enums.MyPagePostFilter;
+import com.dduru.gildongmu.post.domain.enums.MyPagePostSortType;
 import com.dduru.gildongmu.post.domain.enums.PostSortType;
 import com.dduru.gildongmu.post.domain.enums.PostStatus;
 import com.dduru.gildongmu.post.dto.request.MyPageLikedPostListRequest;
@@ -413,37 +414,52 @@ class PostQueryServiceTest {
         @Test
         @DisplayName("RECRUITING 필터를 레포지토리에 전달한다")
         void passesRecruitingFilterToRepository() {
-            when(postRepository.findPostsByUserId(eq(1L), eq(MyPagePostFilter.RECRUITING), isNull(), any(Pageable.class), eq(TODAY)))
+            when(postRepository.findPostsByUserId(eq(1L), eq(MyPagePostFilter.RECRUITING), isNull(), any(Pageable.class), eq(TODAY), eq(MyPagePostSortType.LATEST)))
                     .thenReturn(List.of());
             lenient().when(postRepository.countTotalPostsByUserId(any())).thenReturn(0L);
 
             postQueryService.retrieveMyPosts(1L, myPageRequest(null, 10, MyPagePostFilter.RECRUITING));
 
-            verify(postRepository).findPostsByUserId(eq(1L), eq(MyPagePostFilter.RECRUITING), isNull(), any(Pageable.class), eq(TODAY));
+            verify(postRepository).findPostsByUserId(eq(1L), eq(MyPagePostFilter.RECRUITING), isNull(), any(Pageable.class), eq(TODAY), eq(MyPagePostSortType.LATEST));
         }
 
         @Test
         @DisplayName("TRAVEL_ENDED 필터를 레포지토리에 전달한다")
         void passesTravelEndedFilterToRepository() {
-            when(postRepository.findPostsByUserId(eq(1L), eq(MyPagePostFilter.TRAVEL_ENDED), isNull(), any(Pageable.class), eq(TODAY)))
+            when(postRepository.findPostsByUserId(eq(1L), eq(MyPagePostFilter.TRAVEL_ENDED), isNull(), any(Pageable.class), eq(TODAY), eq(MyPagePostSortType.LATEST)))
                     .thenReturn(List.of());
             lenient().when(postRepository.countTotalPostsByUserId(any())).thenReturn(0L);
 
             postQueryService.retrieveMyPosts(1L, myPageRequest(null, 10, MyPagePostFilter.TRAVEL_ENDED));
 
-            verify(postRepository).findPostsByUserId(eq(1L), eq(MyPagePostFilter.TRAVEL_ENDED), isNull(), any(Pageable.class), eq(TODAY));
+            verify(postRepository).findPostsByUserId(eq(1L), eq(MyPagePostFilter.TRAVEL_ENDED), isNull(), any(Pageable.class), eq(TODAY), eq(MyPagePostSortType.LATEST));
         }
 
         @Test
         @DisplayName("ALL 필터를 레포지토리에 전달한다")
         void passesAllFilterToRepository() {
-            when(postRepository.findPostsByUserId(eq(1L), eq(MyPagePostFilter.ALL), isNull(), any(Pageable.class), eq(TODAY)))
+            when(postRepository.findPostsByUserId(eq(1L), eq(MyPagePostFilter.ALL), isNull(), any(Pageable.class), eq(TODAY), eq(MyPagePostSortType.LATEST)))
                     .thenReturn(List.of());
             lenient().when(postRepository.countTotalPostsByUserId(any())).thenReturn(0L);
 
             postQueryService.retrieveMyPosts(1L, myPageRequest(null, 10, MyPagePostFilter.ALL));
 
-            verify(postRepository).findPostsByUserId(eq(1L), eq(MyPagePostFilter.ALL), isNull(), any(Pageable.class), eq(TODAY));
+            verify(postRepository).findPostsByUserId(eq(1L), eq(MyPagePostFilter.ALL), isNull(), any(Pageable.class), eq(TODAY), eq(MyPagePostSortType.LATEST));
+
+        }
+
+        @Test
+        @DisplayName("오래된순 정렬을 레포지토리에 전달한다")
+        void passesOldestSortToRepository() {
+            when(postRepository.findPostsByUserId(eq(1L), eq(MyPagePostFilter.ALL), isNull(), any(Pageable.class), eq(TODAY), eq(MyPagePostSortType.OLDEST)))
+                    .thenReturn(List.of());
+            lenient().when(postRepository.countTotalPostsByUserId(any())).thenReturn(0L);
+
+            postQueryService.retrieveMyPosts(
+                    1L, myPageRequest(null, 10, MyPagePostFilter.ALL, MyPagePostSortType.OLDEST)
+            );
+
+            verify(postRepository).findPostsByUserId(eq(1L), eq(MyPagePostFilter.ALL), isNull(), any(Pageable.class), eq(TODAY), eq(MyPagePostSortType.OLDEST));
         }
     }
 
@@ -458,7 +474,7 @@ class PostQueryServiceTest {
         @Test
         @DisplayName("totalPostCount를 응답에 포함한다")
         void includesTotalPostCountInResponse() {
-            when(postRepository.findPostsByUserId(any(), any(), any(), any(), any())).thenReturn(List.of());
+            when(postRepository.findPostsByUserId(any(), any(), any(), any(), any(), any())).thenReturn(List.of());
             when(postRepository.countTotalPostsByUserId(eq(1L))).thenReturn(4L);
 
             MyPagePostListResponse response = postQueryService.retrieveMyPosts(1L, myPageRequest(null, 10, MyPagePostFilter.ALL));
@@ -469,7 +485,7 @@ class PostQueryServiceTest {
         @Test
         @DisplayName("필터와 무관하게 삭제되지 않은 전체 게시글 수를 조회한다")
         void totalCountIsIndependentOfFilter() {
-            when(postRepository.findPostsByUserId(any(), any(), any(), any(), any())).thenReturn(List.of());
+            when(postRepository.findPostsByUserId(any(), any(), any(), any(), any(), any())).thenReturn(List.of());
             when(postRepository.countTotalPostsByUserId(eq(1L))).thenReturn(5L);
 
             MyPagePostListResponse response = postQueryService.retrieveMyPosts(1L, myPageRequest(null, 10, MyPagePostFilter.TRAVEL_ENDED));
@@ -496,7 +512,7 @@ class PostQueryServiceTest {
             ReflectionTestUtils.setField(post, "photoUrl", "https://example.com/post.png");
             ReflectionTestUtils.setField(post, "viewCount", 1242);
             ReflectionTestUtils.setField(post, "likeCount", 34);
-            when(postRepository.findPostsByUserId(eq(1L), eq(MyPagePostFilter.ALL), isNull(), any(Pageable.class), eq(TODAY)))
+            when(postRepository.findPostsByUserId(eq(1L), eq(MyPagePostFilter.ALL), isNull(), any(Pageable.class), eq(TODAY), eq(MyPagePostSortType.LATEST)))
                     .thenReturn(List.of(post));
             when(postRepository.countTotalPostsByUserId(1L)).thenReturn(1L);
             when(superHostService.countUnusedTickets(1L)).thenReturn(3);
@@ -515,7 +531,7 @@ class PostQueryServiceTest {
         @DisplayName("결과가 있으면 게시글 목록과 nextCursor를 반환한다")
         void returnsPostsWithNextCursor() {
             Long userId = 1L;
-            when(postRepository.findPostsByUserId(eq(userId), eq(MyPagePostFilter.ALL), isNull(), any(Pageable.class), eq(TODAY)))
+            when(postRepository.findPostsByUserId(eq(userId), eq(MyPagePostFilter.ALL), isNull(), any(Pageable.class), eq(TODAY), eq(MyPagePostSortType.LATEST)))
                     .thenReturn(List.of(createPost(10L), createPost(5L), createPost(1L)));
             lenient().when(postRepository.countTotalPostsByUserId(any())).thenReturn(3L);
 
@@ -530,7 +546,7 @@ class PostQueryServiceTest {
         @DisplayName("결과가 없으면 빈 목록을 반환한다")
         void returnsEmptyWhenNoPosts() {
             Long userId = 1L;
-            when(postRepository.findPostsByUserId(eq(userId), eq(MyPagePostFilter.ALL), isNull(), any(Pageable.class), eq(TODAY)))
+            when(postRepository.findPostsByUserId(eq(userId), eq(MyPagePostFilter.ALL), isNull(), any(Pageable.class), eq(TODAY), eq(MyPagePostSortType.LATEST)))
                     .thenReturn(List.of());
             lenient().when(postRepository.countTotalPostsByUserId(any())).thenReturn(0L);
 
@@ -546,13 +562,13 @@ class PostQueryServiceTest {
         void passesCursorToRepository() {
             Long userId = 1L;
             Long cursor = 50L;
-            when(postRepository.findPostsByUserId(eq(userId), any(), eq(cursor), any(Pageable.class), eq(TODAY)))
+            when(postRepository.findPostsByUserId(eq(userId), any(), eq(cursor), any(Pageable.class), eq(TODAY), eq(MyPagePostSortType.LATEST)))
                     .thenReturn(List.of());
             lenient().when(postRepository.countTotalPostsByUserId(any())).thenReturn(0L);
 
             postQueryService.retrieveMyPosts(userId, myPageRequest(cursor, 10, MyPagePostFilter.ALL));
 
-            verify(postRepository).findPostsByUserId(eq(userId), any(), eq(cursor), any(Pageable.class), eq(TODAY));
+            verify(postRepository).findPostsByUserId(eq(userId), any(), eq(cursor), any(Pageable.class), eq(TODAY), eq(MyPagePostSortType.LATEST));
         }
 
         @Test
@@ -562,7 +578,7 @@ class PostQueryServiceTest {
             Post post10 = createPost(10L);
             Post post5 = createPost(5L);
             Post post1 = createPost(1L);
-            when(postRepository.findPostsByUserId(eq(userId), any(), isNull(), any(Pageable.class), eq(TODAY)))
+            when(postRepository.findPostsByUserId(eq(userId), any(), isNull(), any(Pageable.class), eq(TODAY), eq(MyPagePostSortType.LATEST)))
                     .thenReturn(List.of(post10, post5, post1));
             lenient().when(postRepository.countTotalPostsByUserId(any())).thenReturn(3L);
 
@@ -691,12 +707,21 @@ class PostQueryServiceTest {
     // ─────────────────────────────────────────────────────────────────────────
 
     private void stubMyPosts(List<Post> posts) {
-        lenient().when(postRepository.findPostsByUserId(any(), any(), any(), any(), any())).thenReturn(posts);
+        lenient().when(postRepository.findPostsByUserId(any(), any(), any(), any(), any(), any())).thenReturn(posts);
         lenient().when(postRepository.countTotalPostsByUserId(any())).thenReturn((long) posts.size());
     }
 
     private MyPagePostListRequest myPageRequest(Long cursor, int size, MyPagePostFilter filter) {
-        return new MyPagePostListRequest(cursor, size, filter);
+        return myPageRequest(cursor, size, filter, MyPagePostSortType.LATEST);
+    }
+
+    private MyPagePostListRequest myPageRequest(
+            Long cursor,
+            int size,
+            MyPagePostFilter filter,
+            MyPagePostSortType sort
+    ) {
+        return new MyPagePostListRequest(cursor, size, filter, sort);
     }
 
     private MyPageLikedPostListRequest likedPostRequest(Long cursor, int size) {
