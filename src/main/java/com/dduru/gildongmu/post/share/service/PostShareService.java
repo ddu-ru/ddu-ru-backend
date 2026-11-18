@@ -1,6 +1,7 @@
 package com.dduru.gildongmu.post.share.service;
 
 import com.dduru.gildongmu.common.time.TimeProvider;
+import com.dduru.gildongmu.common.util.JsonConverter;
 import com.dduru.gildongmu.post.domain.Post;
 import com.dduru.gildongmu.post.repository.PostRepository;
 import com.dduru.gildongmu.post.share.dto.PostShareView;
@@ -15,9 +16,14 @@ public class PostShareService {
 
     private final PostRepository postRepository;
     private final TimeProvider timeProvider;
+    private final JsonConverter jsonConverter;
 
     public PostShareView getShareView(Long postId) {
         Post post = postRepository.getActiveByIdOrThrow(postId);
-        return PostShareView.from(post, timeProvider.today());
+        return PostShareView.from(
+                post,
+                timeProvider.today(),
+                jsonConverter.convertJsonToList(post.getTags())
+        );
     }
 }
