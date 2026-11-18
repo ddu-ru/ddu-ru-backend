@@ -46,6 +46,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/destinations/popular").permitAll()
                         // 게시글 목록 / 상세 조회만 비로그인 허용
                         .requestMatchers(HttpMethod.GET, "/api/v1/posts", "/api/v1/posts/*").permitAll()
+                        // 게시글 공유 웹 페이지 및 Android App Link 검증 파일 비로그인 허용
+                        .requestMatchers(HttpMethod.GET, "/share/posts/*", "/.well-known/assetlinks.json").permitAll()
                         .requestMatchers("/api/v1/verifications/**").authenticated()
                         .requestMatchers("/api/v1/surveys/questions").permitAll()
                         .requestMatchers("/login/page", "/test/login/oauth2/code/**").permitAll()

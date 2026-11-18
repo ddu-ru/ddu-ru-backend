@@ -51,6 +51,11 @@ app:
   logging:
     performance:
       warn-threshold-ms: 300
+  share:
+    base-url: ${SHARE_BASE_URL:https://api.dduru.app}
+    android-package-name: ${ANDROID_PACKAGE_NAME:com.gildongmu.dduru}
+    android-cert-fingerprints: ${ANDROID_APP_LINK_SHA256_FINGERPRINTS:}
+    play-store-url: ${ANDROID_PLAY_STORE_URL:}
 
 springdoc:
   api-docs:

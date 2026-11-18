@@ -58,6 +58,11 @@ services:
       COOLSMS_FROM_NUMBER: ${COOLSMS_FROM_NUMBER}
       # profile 설정
       PROFILE_DEFAULT_IMAGE_URL: ${PROFILE_DEFAULT_IMAGE_URL}
+      # 게시글 공유 및 Android App Link 설정
+      SHARE_BASE_URL: ${SHARE_BASE_URL:-https://api.dduru.app}
+      ANDROID_PACKAGE_NAME: ${ANDROID_PACKAGE_NAME:-com.gildongmu.dduru}
+      ANDROID_APP_LINK_SHA256_FINGERPRINTS: ${ANDROID_APP_LINK_SHA256_FINGERPRINTS:-}
+      ANDROID_PLAY_STORE_URL: ${ANDROID_PLAY_STORE_URL:-}
 
     healthcheck:
       test: ["CMD-SHELL", "curl -fs http://localhost:8080/actuator/health/readiness || exit 1"]

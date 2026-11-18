@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${post.title} + ' | 뚜루'">게시글 상세 | 뚜루</title>
+
+    <meta name="description" th:content="${post.description}">
+    <meta property="og:type" content="article">
+    <meta property="og:site_name" content="뚜루">
+    <meta property="og:title" th:content="${post.title}">
+    <meta property="og:description" th:content="${post.description}">
+    <meta property="og:url" th:content="${canonicalUrl}">
+    <meta property="og:image" th:if="${post.photoUrl != null and !post.photoUrl.isBlank()}" th:content="${post.photoUrl}">
+    <link rel="canonical" th:href="${canonicalUrl}">
+
+    <style>
+        :root {
+            color-scheme: light;
+            font-family: Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #f6f7f9;
+            color: #1d1f24;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: #f6f7f9;
+        }
+
+        .page {
+            width: min(100%, 480px);
+            min-height: 100vh;
+            margin: 0 auto;
+            background: #ffffff;
+            box-shadow: 0 0 32px rgba(28, 36, 48, 0.08);
+        }
+
+        .brand {
+            padding: 20px 20px 16px;
+            font-size: 20px;
+            font-weight: 800;
+            color: #ff6b35;
+        }
+
+        .cover {
+            width: 100%;
+            aspect-ratio: 16 / 10;
+            display: block;
+            object-fit: cover;
+            background: linear-gradient(135deg, #ffe3d7, #fff3ed);
+        }
+
+        .cover-placeholder {
+            display: grid;
+            place-items: center;
+            color: #c75a34;
+            font-weight: 700;
+        }
+
+        .content {
+            padding: 28px 20px 36px;
+        }
+
+        .status {
+            display: inline-flex;
+            align-items: center;
+            padding: 7px 11px;
+            border-radius: 999px;
+            background: #fff0ea;
+            color: #d95728;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        h1 {
+            margin: 14px 0 24px;
+            font-size: 25px;
+            line-height: 1.35;
+            letter-spacing: -0.02em;
+        }
+
+        .info {
+            display: grid;
+            gap: 14px;
+            margin: 0;
+            padding: 20px;
+            border-radius: 16px;
+            background: #f8f9fb;
+        }
+
+        .info-row {
+            display: grid;
+            grid-template-columns: 68px 1fr;
+            gap: 12px;
+            font-size: 15px;
+            line-height: 1.5;
+        }
+
+        .info dt {
+            color: #777e8a;
+        }
+
+        .info dd {
+            margin: 0;
+            font-weight: 650;
+        }
+
+        .cta {
+            margin-top: 28px;
+        }
+
+        .store-link,
+        .coming-soon {
+            width: 100%;
+            min-height: 52px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 14px;
+            font-size: 16px;
+            font-weight: 750;
+        }
+
+        .store-link {
+            background: #ff6b35;
+            color: #ffffff;
+            text-decoration: none;
+        }
+
+        .coming-soon {
+            background: #f0f1f4;
+            color: #777e8a;
+        }
+
+        .caption {
+            margin: 12px 0 0;
+            text-align: center;
+            color: #9298a2;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+<main class="page">
+    <header class="brand">뚜루</header>
+
+    <img class="cover" th:if="${post.photoUrl != null and !post.photoUrl.isBlank()}"
+         th:src="${post.photoUrl}" th:alt="${post.title}">
+    <div class="cover cover-placeholder" th:unless="${post.photoUrl != null and !post.photoUrl.isBlank()}">
+        함께 떠날 여행을 찾아보세요
+    </div>
+
+    <section class="content">
+        <span class="status" th:text="${post.recruitmentStatus}">모집 중</span>
+        <h1 th:text="${post.title}">게시글 제목</h1>
+
+        <dl class="info">
+            <div class="info-row">
+                <dt>여행지</dt>
+                <dd th:text="${post.destination}">제주</dd>
+            </div>
+            <div class="info-row">
+                <dt>여행 기간</dt>
+                <dd th:text="${post.travelPeriod}">2026. 7. 10. - 2026. 7. 12.</dd>
+            </div>
+            <div class="info-row">
+                <dt>모집 인원</dt>
+                <dd th:text="|${post.recruitCount}/${post.recruitCapacity}명|">2/4명</dd>
+            </div>
+        </dl>
+
+        <div class="cta">
+            <a class="store-link" th:if="${hasPlayStoreUrl}" th:href="${playStoreUrl}">뚜루 앱에서 보기</a>
+            <div class="coming-soon" th:unless="${hasPlayStoreUrl}">앱 출시 준비 중</div>
+            <p class="caption">여행을 함께할 동행을 뚜루에서 만나보세요.</p>
+        </div>
+    </section>
+</main>
+</body>
+</html>
