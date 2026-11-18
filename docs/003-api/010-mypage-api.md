@@ -8,8 +8,8 @@
 
 마이페이지 홈에 필요한 프로필 표시 정보와 함께 다음 정보를 반환합니다.
 
-- `travelPreferences.destinationPreferences`: 선호 여행지. 설정이 없으면 빈 배열
-- `travelPreferences.availableDates`: 여행 가능 날짜. 설정이 없으면 빈 배열
+- `travelPreferences.destinationPreferences`: 선호 여행지. 도시 항목은 `imageUrl`을 포함하며 설정이 없으면 빈 배열
+- `travelPreferences.availableDates`: 최대 3개의 여행 가능 날짜. 시작일·종료일 오름차순이며 설정이 없으면 빈 배열
 - `travelStyleSummary`: 현재 프로필에 연결된 아바타 성향의 이름, 한줄 설명, 태그
 - 설문을 완료하지 않아 아바타 성향이 없으면 `travelStyleSummary`는 `null`
 
@@ -19,9 +19,10 @@
 
 ## 작성글 관리
 
-`GET /api/v1/users/me/posts?cursor={postId}&size=10&status=ALL`
+`GET /api/v1/users/me/posts?cursor={postId}&size=10&status=ALL&sort=LATEST`
 
-- 목록은 게시글 ID 내림차순입니다.
+- `sort=LATEST`는 최신순, `sort=OLDEST`는 오래된순이며 생략 시 최신순입니다.
+- 다음 페이지를 조회할 때는 첫 요청과 같은 `sort`를 전달합니다.
 - `unusedSuperHostTicketCount`로 화면 상단의 보유 티켓 수를 표시합니다.
 - 각 게시글은 모집 인원, 대표 이미지, 조회 수, 좋아요 수와 `displayStatus`를 반환합니다.
 - 슈퍼호스트 적용 화면에서는 `GET /api/v1/posts/super-hosts/me`를 사용합니다.
