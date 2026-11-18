@@ -9,6 +9,7 @@ import com.dduru.gildongmu.post.dto.response.MyPageLikedPostListResponse;
 import com.dduru.gildongmu.post.dto.response.MyPagePostListResponse;
 import com.dduru.gildongmu.recommendation.dto.request.TravelPreferenceUpdateRequest;
 import com.dduru.gildongmu.recommendation.dto.response.TravelPreferenceResponse;
+import com.dduru.gildongmu.user.dto.response.MyPageOverviewResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -26,8 +27,24 @@ import org.springframework.http.ResponseEntity;
 public interface UserApiDocs {
 
     @Operation(
+            summary = "마이페이지 홈 요약 조회",
+            description = "마이페이지 홈에 필요한 프로필 표시 정보, 선호 여행지, 여행 가능 날짜, 여행 스타일 요약을 조회합니다. " +
+                    "성별, 생년월일, 전화번호는 포함하지 않습니다. 설문 미완료 시 travelStyleSummary는 null입니다.",
+            security = @SecurityRequirement(name = "JWT")
+    )
+    @ApiResponse(responseCode = "200", description = "조회 성공")
+    @ApiErrorResponses({
+            ErrorCode.UNAUTHORIZED,
+            ErrorCode.PROFILE_NOT_FOUND
+    })
+    ResponseEntity<ApiResult<MyPageOverviewResponse>> retrieveMyPageOverview(
+            @Parameter(hidden = true) Long userId
+    );
+
+    @Operation(
             summary = "내가 작성한 게시글 목록 조회",
-            description = "내가 작성한 게시글 목록을 커서 기반 페이지네이션으로 조회합니다.",
+            description = "내가 작성한 게시글 목록을 커서 기반 페이지네이션으로 조회합니다. " +
+                    "LATEST는 최신순, OLDEST는 오래된순이며 다음 페이지에서도 같은 정렬값을 전달해야 합니다.",
             security = @SecurityRequirement(name = "JWT")
     )
     @ApiResponse(responseCode = "200", description = "조회 성공")
@@ -68,6 +85,7 @@ public interface UserApiDocs {
             summary = "여행 선호 설정 부분 수정",
             description = "생략하거나 null인 목록은 유지하고 전달한 배열만 해당 목록 전체를 교체합니다. " +
                     "destinationPreferences는 최대 3개이며 중복 제거 후 배열 순서대로 순위를 부여합니다. " +
+                    "availableDates는 최대 3개이며 조회 시 시작일과 종료일 오름차순으로 반환합니다. " +
                     "국가 선택은 type=COUNTRY와 countryCode, 도시 선택은 type=CITY와 destinationId를 전달합니다. " +
                     "빈 배열은 해당 목록 전체 삭제입니다. 배열 내부의 null 항목은 허용하지 않습니다. 빈 객체는 변경하지 않습니다.",
             requestBody = @RequestBody(

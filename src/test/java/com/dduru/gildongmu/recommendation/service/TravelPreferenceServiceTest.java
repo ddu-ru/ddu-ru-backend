@@ -103,6 +103,8 @@ class TravelPreferenceServiceTest {
         assertThat(response.destinationPreferences().get(0).type()).isEqualTo(RecommendationDestinationPreferenceType.CITY);
         assertThat(response.destinationPreferences().get(0).destinationId()).isEqualTo(tokyo.getId());
         assertThat(response.destinationPreferences().get(0).city()).isEqualTo("도쿄");
+        assertThat(response.destinationPreferences().get(0).imageUrl())
+                .isEqualTo("https://example.com/도쿄.jpg");
     }
 
     @Test
@@ -116,6 +118,43 @@ class TravelPreferenceServiceTest {
         assertThat(response.availableDates()).hasSize(1);
         assertThat(response.availableDates().get(0).startDate()).isEqualTo(date(2026, 8, 1));
         assertThat(response.availableDates().get(0).endDate()).isEqualTo(date(2026, 8, 7));
+    }
+
+    @Test
+    @DisplayName("여행 가능 날짜는 시작일과 종료일 오름차순으로 반환한다")
+    void getTravelPreferences_returnsAvailableDatesInAscendingOrder() {
+        User user = saveUser();
+        availableDateRepository.save(UserRecommendationAvailableDate.of(user, date(2026, 9, 1), date(2026, 9, 3)));
+        availableDateRepository.save(UserRecommendationAvailableDate.of(user, date(2026, 8, 1), date(2026, 8, 7)));
+        availableDateRepository.save(UserRecommendationAvailableDate.of(user, date(2026, 8, 1), date(2026, 8, 5)));
+
+        TravelPreferenceResponse response = travelPreferenceService.getTravelPreferences(user.getId());
+
+        assertThat(response.availableDates())
+                .extracting("startDate", "endDate")
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple(date(2026, 8, 1), date(2026, 8, 5)),
+                        org.assertj.core.groups.Tuple.tuple(date(2026, 8, 1), date(2026, 8, 7)),
+                        org.assertj.core.groups.Tuple.tuple(date(2026, 9, 1), date(2026, 9, 3))
+                );
+    }
+
+    @Test
+    @DisplayName("여행 가능 날짜가 3개를 초과하면 InvalidAvailableDateException이 발생한다")
+    void updateTravelPreferences_throwsWhenAvailableDatesExceedLimit() {
+        User user = saveUser();
+        TravelPreferenceUpdateRequest request = testRequest(
+                List.of(),
+                List.of(
+                        new AvailableDateRequest(date(2026, 8, 1), date(2026, 8, 2)),
+                        new AvailableDateRequest(date(2026, 8, 3), date(2026, 8, 4)),
+                        new AvailableDateRequest(date(2026, 8, 5), date(2026, 8, 6)),
+                        new AvailableDateRequest(date(2026, 8, 7), date(2026, 8, 8))
+                )
+        );
+
+        assertThatThrownBy(() -> travelPreferenceService.updateTravelPreferences(user.getId(), request))
+                .isInstanceOf(InvalidAvailableDateException.class);
     }
 
     @Test

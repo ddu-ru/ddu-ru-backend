@@ -1,6 +1,7 @@
 package com.dduru.gildongmu.post.dto.request;
 
 import com.dduru.gildongmu.post.domain.enums.MyPagePostFilter;
+import com.dduru.gildongmu.post.domain.enums.MyPagePostSortType;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 public record MyPagePostListRequest(
@@ -10,10 +11,14 @@ public record MyPagePostListRequest(
         Integer size,
         @Schema(description = "상태 필터. 생략 시 전체 조회합니다.", example = "ALL",
                 allowableValues = {"ALL", "RECRUITING", "RECRUITMENT_CLOSED", "TRAVEL_ENDED"})
-        MyPagePostFilter status
+        MyPagePostFilter status,
+        @Schema(description = "정렬 기준. 생략 시 최신순입니다.", example = "LATEST",
+                allowableValues = {"LATEST", "OLDEST"})
+        MyPagePostSortType sort
 ) {
     public MyPagePostListRequest {
         if (size == null || size <= 0 || size > 50) size = 10;
         if (status == null) status = MyPagePostFilter.ALL;
+        if (sort == null) sort = MyPagePostSortType.LATEST;
     }
 }
