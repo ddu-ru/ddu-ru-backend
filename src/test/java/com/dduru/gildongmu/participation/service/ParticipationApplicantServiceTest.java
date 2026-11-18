@@ -1,5 +1,6 @@
 package com.dduru.gildongmu.participation.service;
 
+import com.dduru.gildongmu.block.policy.UserBlockPolicy;
 import com.dduru.gildongmu.chat.domain.enums.ChatRoomType;
 import com.dduru.gildongmu.chat.dto.query.ChatRoomIdByPostIdQueryResult;
 import com.dduru.gildongmu.chat.repository.ChatRoomRepository;
@@ -56,6 +57,8 @@ class ParticipationApplicantServiceTest {
     private ProfileImageResolver profileImageResolver;
     @Mock
     private JourneyMemberRepository journeyMemberRepository;
+    @Mock
+    private UserBlockPolicy userBlockPolicy;
 
     @InjectMocks
     private ParticipationApplicantService participationApplicantService;

@@ -1,5 +1,6 @@
 package com.dduru.gildongmu.chat.service;
 
+import com.dduru.gildongmu.block.policy.UserBlockPolicy;
 import com.dduru.gildongmu.chat.domain.ChatRoom;
 import com.dduru.gildongmu.chat.domain.ChatRoomMember;
 import com.dduru.gildongmu.chat.domain.enums.ChatMemberRole;
@@ -10,6 +11,7 @@ import com.dduru.gildongmu.chat.exception.NotSelfChatException;
 import com.dduru.gildongmu.chat.repository.ChatRoomMemberRepository;
 import com.dduru.gildongmu.chat.repository.ChatRoomRepository;
 import com.dduru.gildongmu.post.domain.Post;
+import com.dduru.gildongmu.post.exception.PostNotFoundException;
 import com.dduru.gildongmu.post.repository.PostRepository;
 import com.dduru.gildongmu.user.domain.User;
 import com.dduru.gildongmu.user.repository.UserRepository;
@@ -37,6 +39,7 @@ public class PrivateChatRoomService {
     private final ChatRoomMemberRepository chatRoomMemberRepository;
     private final PostRepository postRepository;
     private final UserRepository userRepository;
+    private final UserBlockPolicy userBlockPolicy;
 
     public PrivateChatRoomCreateResponse createOrGetRoom(Long requesterId, Long postId) {
         Post lockedPost = postRepository.getActiveByIdWithLockOrThrow(postId);
@@ -57,6 +60,7 @@ public class PrivateChatRoomService {
 
     private PrivateChatRoomCreateResponse doCreateOrGetRoom(Long requesterId, Post post, Long targetUserId) {
         validateNotSelfChat(requesterId, targetUserId);
+        userBlockPolicy.validateInteraction(requesterId, targetUserId, PostNotFoundException::new);
 
         User requester = userRepository.getByIdOrThrow(requesterId);
         User target = userRepository.getByIdOrThrow(targetUserId);

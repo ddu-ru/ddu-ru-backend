@@ -9,7 +9,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 public interface PostRepositoryCustom {
-    List<Post> findPostsWithFilters(PostListRequest request, LocalDate today, Integer cursorValue, Pageable pageable);
+    List<Post> findPostsWithFilters(PostListRequest request, LocalDate today, Integer cursorValue, Long viewerId, Pageable pageable);
     List<Post> findPostsByUserId(Long userId, MyPagePostFilter filter, Long cursor, Pageable pageable, LocalDate today);
     long countTotalPostsByUserId(Long userId);
 }

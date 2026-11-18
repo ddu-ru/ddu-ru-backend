@@ -43,7 +43,7 @@ public class PostQueryService {
     public PostListResponse retrieveAllWithFilter(PostListRequest request, Long userId) {
         LocalDate today = today();
         Pageable pageable = PageRequest.of(0, request.size() + 1);
-        List<Post> posts = postRepository.findPostsWithFilters(request, today, request.cursorValue(), pageable);
+        List<Post> posts = postRepository.findPostsWithFilters(request, today, request.cursorValue(), userId, pageable);
 
         boolean hasNext = posts.size() > request.size();
         if (hasNext) {

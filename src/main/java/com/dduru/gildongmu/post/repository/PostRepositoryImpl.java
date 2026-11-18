@@ -18,6 +18,7 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDate;
 import java.util.List;
 
+import static com.dduru.gildongmu.block.repository.UserBlockPredicates.noBlockBetween;
 import static com.dduru.gildongmu.destination.domain.QDestination.destination;
 import static com.dduru.gildongmu.post.domain.QPost.post;
 import static com.dduru.gildongmu.profile.domain.QProfile.profile;
@@ -31,7 +32,7 @@ public class PostRepositoryImpl implements PostRepositoryCustom {
     private final JPAQueryFactory queryFactory;
 
     @Override
-    public List<Post> findPostsWithFilters(PostListRequest request, LocalDate today, Integer cursorValue, Pageable pageable) {
+    public List<Post> findPostsWithFilters(PostListRequest request, LocalDate today, Integer cursorValue, Long viewerId, Pageable pageable) {
         return queryFactory
                 .selectFrom(post)
                 .leftJoin(post.destination, destination).fetchJoin()
@@ -48,7 +49,8 @@ public class PostRepositoryImpl implements PostRepositoryCustom {
                         countryCondition(request.countryCode()),
                         recruitCapacityCondition(request.minRecruitCapacity(), request.maxRecruitCapacity()),
                         recruitmentStatusCondition(request.recruitmentStatus(), today),
-                        companionTypeCondition(request.companionType())
+                        companionTypeCondition(request.companionType()),
+                        noBlockBetween(viewerId, post.user.id)
                 )
                 .orderBy(sortOrder(request.sort()))
                 .limit(pageable.getPageSize())

@@ -138,6 +138,30 @@ public interface JourneyMemberRepository extends JpaRepository<JourneyMember, Lo
     );
 
     @Query("""
+            SELECT jm
+            FROM JourneyMember jm
+            JOIN FETCH jm.user u
+            JOIN FETCH u.profile pr
+            LEFT JOIN FETCH pr.avatar
+            LEFT JOIN FETCH pr.bgColor
+            WHERE jm.journey.post.id = :postId
+              AND jm.status = :status
+              AND (:viewerUserId IS NULL OR NOT EXISTS (
+                  SELECT ub.id FROM UserBlock ub
+                  WHERE (ub.blocker.id = :viewerUserId AND ub.blockedUser.id = jm.user.id)
+                     OR (ub.blocker.id = jm.user.id AND ub.blockedUser.id = :viewerUserId)
+              ))
+            ORDER BY jm.role ASC,
+                     jm.joinedAt ASC,
+                     jm.id ASC
+            """)
+    List<JourneyMember> findVisibleByPostIdAndStatusWithMemberProfiles(
+            @Param("postId") Long postId,
+            @Param("status") JourneyMemberStatus status,
+            @Param("viewerUserId") Long viewerUserId
+    );
+
+    @Query("""
             SELECT jm.user.id
             FROM JourneyMember jm
             WHERE jm.journey.id = :journeyId

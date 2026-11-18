@@ -1,5 +1,6 @@
 package com.dduru.gildongmu.participation.service;
 
+import com.dduru.gildongmu.block.policy.UserBlockPolicy;
 import com.dduru.gildongmu.chat.domain.enums.ChatRoomStatus;
 import com.dduru.gildongmu.chat.domain.enums.ChatRoomType;
 import com.dduru.gildongmu.chat.dto.query.ChatRoomIdByPostIdQueryResult;
@@ -18,6 +19,7 @@ import com.dduru.gildongmu.participation.exception.ParticipationApplicantAccessD
 import com.dduru.gildongmu.participation.exception.SelfParticipationNotAllowedException;
 import com.dduru.gildongmu.participation.repository.ParticipationRepository;
 import com.dduru.gildongmu.post.domain.Post;
+import com.dduru.gildongmu.post.exception.PostNotFoundException;
 import com.dduru.gildongmu.post.dto.response.MyParticipationStatus;
 import com.dduru.gildongmu.post.dto.response.ParticipantInfo;
 import com.dduru.gildongmu.post.repository.PostRepository;
@@ -53,11 +55,13 @@ public class ParticipationApplicantService {
     private final ProfileRepository profileRepository;
     private final JourneyMemberRepository journeyMemberRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final UserBlockPolicy userBlockPolicy;
 
     public ParticipationCreateResponse participate(Long userId, Long postId, ParticipationRequest request) {
         Post post = postRepository.getActiveByIdWithLockOrThrow(postId);
         User applicant = userRepository.getByIdOrThrow(userId);
 
+        userBlockPolicy.validateInteraction(userId, post.getUser().getId(), PostNotFoundException::new);
         validateParticipationAllowed(post, applicant);
 
         Participation participation = Participation.createParticipation(post, applicant, request.message());
@@ -86,9 +90,13 @@ public class ParticipationApplicantService {
     }
 
     @Transactional(readOnly = true)
-    public List<ParticipantInfo> getParticipantsForPostDetail(Post post, LocalDate today) {
+    public List<ParticipantInfo> getParticipantsForPostDetail(Post post, LocalDate today, Long viewerUserId) {
         return journeyMemberRepository
-                .findByPostIdAndStatusWithMemberProfiles(post.getId(), JourneyMemberStatus.ACTIVE).stream()
+                .findVisibleByPostIdAndStatusWithMemberProfiles(
+                        post.getId(),
+                        JourneyMemberStatus.ACTIVE,
+                        viewerUserId
+                ).stream()
                 .map(journeyMember -> ParticipantInfo.from(journeyMember.getUser(), journeyMember.isHost(), profileImageResolver, today))
                 .toList();
     }

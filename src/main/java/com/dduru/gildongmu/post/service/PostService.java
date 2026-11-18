@@ -1,5 +1,6 @@
 package com.dduru.gildongmu.post.service;
 
+import com.dduru.gildongmu.block.policy.UserBlockPolicy;
 import com.dduru.gildongmu.chat.service.GroupChatRoomService;
 import com.dduru.gildongmu.chat.event.PostUpdatedEvent;
 import com.dduru.gildongmu.common.time.TimeProvider;
@@ -25,6 +26,7 @@ import com.dduru.gildongmu.post.dto.response.ParticipantInfo;
 import com.dduru.gildongmu.post.dto.response.PostCreateResponse;
 import com.dduru.gildongmu.post.dto.response.PostDetailResponse;
 import com.dduru.gildongmu.post.exception.PostAccessDeniedException;
+import com.dduru.gildongmu.post.exception.PostNotFoundException;
 import com.dduru.gildongmu.post.repository.PostRepository;
 import com.dduru.gildongmu.profile.utils.ProfileImageResolver;
 import com.dduru.gildongmu.superhost.service.SuperHostService;
@@ -62,6 +64,7 @@ public class PostService {
     private final S3ImageUrlValidator s3ImageUrlValidator;
     private final TimeProvider timeProvider;
     private final ApplicationEventPublisher eventPublisher;
+    private final UserBlockPolicy userBlockPolicy;
 
     public PostCreateResponse create(Long userId, PostCreateRequest request) {
         TagValidator.validateOrThrow(request.tags());
@@ -117,18 +120,22 @@ public class PostService {
     }
 
     public PostDetailResponse recordViewAndGetDetail(Long postId, Long currentUserId) {
+        Post post = postRepository.getActiveByIdOrThrow(postId);
+        userBlockPolicy.validateInteraction(currentUserId, post.getUser().getId(), PostNotFoundException::new);
         postRepository.incrementViewCount(postId);
-        return getDetail(postId, currentUserId);
+        return buildDetailResponse(postRepository.getActiveByIdOrThrow(postId), currentUserId);
     }
 
     @Transactional(readOnly = true)
     public PostDetailResponse getDetail(Long postId, Long currentUserId) {
         Post post = postRepository.getActiveByIdOrThrow(postId);
+        userBlockPolicy.validateInteraction(currentUserId, post.getUser().getId(), PostNotFoundException::new);
         return buildDetailResponse(post, currentUserId);
     }
 
     @Transactional(readOnly = true)
     public PostDetailResponse getDetail(Post post, Long currentUserId) {
+        userBlockPolicy.validateInteraction(currentUserId, post.getUser().getId(), PostNotFoundException::new);
         return buildDetailResponse(post, currentUserId);
     }
 
@@ -139,7 +146,11 @@ public class PostService {
         boolean hasLiked = hasLiked(post.getId(), currentUserId);
         boolean isAuthorSuperHost = superHostService.isAuthorSuperHostForPost(post.getId());
 
-        List<ParticipantInfo> participants = participationApplicantService.getParticipantsForPostDetail(post, today);
+        List<ParticipantInfo> participants = participationApplicantService.getParticipantsForPostDetail(
+                post,
+                today,
+                currentUserId
+        );
         MyParticipationStatus myParticipationStatus = participationApplicantService.getMyParticipationStatus(post.getId(), currentUserId, isOwner);
 
         return PostDetailResponse.from(

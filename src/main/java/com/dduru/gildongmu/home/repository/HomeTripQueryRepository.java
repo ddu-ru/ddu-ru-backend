@@ -15,6 +15,7 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDate;
 import java.util.List;
 
+import static com.dduru.gildongmu.block.repository.UserBlockPredicates.noBlockBetween;
 import static com.dduru.gildongmu.destination.domain.QDestination.destination;
 import static com.dduru.gildongmu.post.domain.QPost.post;
 import static com.dduru.gildongmu.profile.domain.QProfile.profile;
@@ -81,6 +82,7 @@ public class HomeTripQueryRepository {
                 .and(post.user.id.ne(userId))
                 .and(JPAExpressions.selectOne().from(report)
                         .where(report.post.id.eq(post.id), report.user.id.eq(userId))
-                        .notExists());
+                        .notExists())
+                .and(noBlockBetween(userId, post.user.id));
     }
 }

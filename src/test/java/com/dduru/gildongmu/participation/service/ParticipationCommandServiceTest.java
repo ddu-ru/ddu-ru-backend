@@ -1,5 +1,6 @@
 package com.dduru.gildongmu.participation.service;
 
+import com.dduru.gildongmu.block.policy.UserBlockPolicy;
 import com.dduru.gildongmu.chat.dto.response.GroupChatInviteMemberResponse;
 import com.dduru.gildongmu.chat.dto.response.PrivateChatRoomCreateResponse;
 import com.dduru.gildongmu.chat.service.GroupChatRoomService;
@@ -76,6 +77,9 @@ class ParticipationCommandServiceTest {
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
+
+    @Mock
+    private UserBlockPolicy userBlockPolicy;
 
     @InjectMocks
     private ParticipationCommandService participationCommandService;

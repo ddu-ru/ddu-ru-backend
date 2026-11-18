@@ -18,6 +18,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
+import static com.dduru.gildongmu.block.repository.UserBlockPredicates.noBlockBetween;
 import static com.dduru.gildongmu.destination.domain.QDestination.destination;
 import static com.dduru.gildongmu.participation.domain.QParticipation.participation;
 import static com.dduru.gildongmu.post.domain.QPost.post;
@@ -112,7 +113,8 @@ public class MateRecommendationCardQueryRepository {
                                         report.post.id.eq(post.id),
                                         report.user.id.eq(userId)
                                 )
-                                .notExists()
+                                .notExists(),
+                        noBlockBetween(userId, post.user.id)
                 )
                 .orderBy(mateRecommendation.recommendationRank.asc())
                 .fetch();

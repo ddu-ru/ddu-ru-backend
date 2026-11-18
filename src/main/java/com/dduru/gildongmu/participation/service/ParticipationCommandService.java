@@ -1,5 +1,6 @@
 package com.dduru.gildongmu.participation.service;
 
+import com.dduru.gildongmu.block.policy.UserBlockPolicy;
 import com.dduru.gildongmu.chat.dto.response.GroupChatInviteMemberResponse;
 import com.dduru.gildongmu.chat.dto.response.PrivateChatRoomCreateResponse;
 import com.dduru.gildongmu.chat.service.GroupChatRoomService;
@@ -15,6 +16,7 @@ import com.dduru.gildongmu.participation.dto.response.ParticipationApproveRespon
 import com.dduru.gildongmu.participation.dto.response.ParticipationContactResponse;
 import com.dduru.gildongmu.participation.dto.response.ParticipationRetrieveResponse;
 import com.dduru.gildongmu.participation.event.MatchApprovedEvent;
+import com.dduru.gildongmu.participation.exception.ParticipationNotFoundException;
 import com.dduru.gildongmu.participation.repository.ParticipationRepository;
 import com.dduru.gildongmu.post.domain.Post;
 import com.dduru.gildongmu.post.exception.PostAccessDeniedException;
@@ -52,6 +54,7 @@ public class ParticipationCommandService {
     private final JourneyMemberRepository journeyMemberRepository;
     private final TimeProvider timeProvider;
     private final ApplicationEventPublisher eventPublisher;
+    private final UserBlockPolicy userBlockPolicy;
 
     public ParticipationContactResponse contactParticipation(Long userId, Long participationId) {
         Participation participation = participationRepository.getByIdWithLockOrThrow(participationId);
@@ -60,6 +63,7 @@ public class ParticipationCommandService {
 
         validatePostOwner(lockedPost, userId);
         lockedPost.validateIsOpen();
+        userBlockPolicy.validateInteraction(userId, participantUserId, ParticipationNotFoundException::new);
 
         PrivateChatRoomCreateResponse room = privateChatRoomService.createOrGetRoomWithLockedPost(userId, lockedPost, participantUserId);
 
@@ -81,6 +85,7 @@ public class ParticipationCommandService {
 
         validatePostOwner(lockedPost, userId);
         lockedPost.validateIsOpen();
+        userBlockPolicy.validateInteraction(userId, participantUserId, ParticipationNotFoundException::new);
 
         lockedPost.approveParticipation(participation, timeProvider.now());
         Journey journey = journeyRepository.getByPostIdOrThrow(lockedPost.getId());
