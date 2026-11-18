@@ -80,7 +80,7 @@ public class SuperHostService {
         saveExposure(ticket, post, now, endsAt);
         log.info("슈퍼호스트 티켓 사용 완료 - userId={}, postId={}, ticketId={}", userId, postId, ticket.getId());
 
-        int unusedTicketCount = getUnusedTicketCount(userId);
+        int unusedTicketCount = countUnusedTickets(userId);
         return SuperHostApplyResponse.of(postId, ticket.getId(), now, endsAt, unusedTicketCount);
     }
 
@@ -95,7 +95,7 @@ public class SuperHostService {
     @Transactional(readOnly = true)
     public MySuperHostStatusResponse getMyStatus(Long userId) {
         LocalDateTime now = timeProvider.now();
-        int unusedCount = getUnusedTicketCount(userId);
+        int unusedCount = countUnusedTickets(userId);
         List<Post> manageablePosts = postRepository.findSuperHostManageablePostsByUserId(
                 userId,
                 PostStatus.OPEN,
@@ -191,7 +191,8 @@ public class SuperHostService {
         superHostExposureRepository.save(exposure);
     }
 
-    private int getUnusedTicketCount(Long userId) {
+    @Transactional(readOnly = true)
+    public int countUnusedTickets(Long userId) {
         return Math.toIntExact(
                 superHostTicketRepository.countByUser_IdAndStatus(userId, SuperHostTicketStatus.UNUSED)
         );

@@ -10,6 +10,8 @@ import com.dduru.gildongmu.post.service.PostQueryService;
 import com.dduru.gildongmu.recommendation.dto.request.TravelPreferenceUpdateRequest;
 import com.dduru.gildongmu.recommendation.dto.response.TravelPreferenceResponse;
 import com.dduru.gildongmu.recommendation.service.TravelPreferenceService;
+import com.dduru.gildongmu.user.dto.response.MyPageOverviewResponse;
+import com.dduru.gildongmu.user.service.MyPageOverviewQueryService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -23,6 +25,15 @@ public class UserController implements UserApiDocs {
 
     private final PostQueryService postQueryService;
     private final TravelPreferenceService travelPreferenceService;
+    private final MyPageOverviewQueryService myPageOverviewQueryService;
+
+    @Override
+    @GetMapping("/overview")
+    public ResponseEntity<ApiResult<MyPageOverviewResponse>> retrieveMyPageOverview(
+            @CurrentUser Long userId
+    ) {
+        return ResponseEntity.ok(ApiResult.ok(myPageOverviewQueryService.retrieve(userId)));
+    }
 
     @Override
     @GetMapping("/liked-posts")

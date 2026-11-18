@@ -5,6 +5,7 @@ import com.dduru.gildongmu.common.exception.GlobalExceptionHandler;
 import com.dduru.gildongmu.post.service.PostQueryService;
 import com.dduru.gildongmu.recommendation.dto.request.TravelPreferenceUpdateRequest;
 import com.dduru.gildongmu.recommendation.service.TravelPreferenceService;
+import com.dduru.gildongmu.user.service.MyPageOverviewQueryService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -31,7 +32,11 @@ class TravelPreferencePatchControllerTest {
     @BeforeEach
     void setUp() {
         service = mock(TravelPreferenceService.class);
-        mvc = standaloneSetup(new UserController(mock(PostQueryService.class), service))
+        mvc = standaloneSetup(new UserController(
+                        mock(PostQueryService.class),
+                        service,
+                        mock(MyPageOverviewQueryService.class)
+                ))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .setCustomArgumentResolvers(new HandlerMethodArgumentResolver() {
                     @Override
@@ -114,6 +119,21 @@ class TravelPreferencePatchControllerTest {
                                   {"type":"COUNTRY","countryCode":"JP"},
                                   {"type":"COUNTRY","countryCode":"JP"},
                                   {"type":"COUNTRY","countryCode":"JP"}
+                                ]}
+                                """))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void moreThanThreeAvailableDatesReturns400() throws Exception {
+        mvc.perform(patch("/api/v1/users/me/travel-preferences").contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"availableDates":[
+                                  {"startDate":"2026-10-01","endDate":"2026-10-02"},
+                                  {"startDate":"2026-10-03","endDate":"2026-10-04"},
+                                  {"startDate":"2026-10-05","endDate":"2026-10-06"},
+                                  {"startDate":"2026-10-07","endDate":"2026-10-08"}
                                 ]}
                                 """))
                 .andExpect(status().isBadRequest());

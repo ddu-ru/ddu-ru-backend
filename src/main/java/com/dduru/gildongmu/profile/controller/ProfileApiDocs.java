@@ -22,7 +22,7 @@ import org.springframework.http.ResponseEntity;
 @SecurityRequirement(name = "JWT")
 public interface ProfileApiDocs {
 
-    @Operation(summary = "마이페이지 프로필 조회", description = "내 닉네임, 나이대, 한줄소개, 프로필 이미지 정보를 조회합니다.")
+    @Operation(summary = "내 상세 프로필 조회", description = "프로필 조회·수정 화면에 필요한 닉네임, 소개, 이미지, 성별, 생년월일, 전화번호를 조회합니다.")
     @ApiResponse(responseCode = "200", description = "프로필 조회 성공")
     @ApiErrorResponses({
             ErrorCode.UNAUTHORIZED,

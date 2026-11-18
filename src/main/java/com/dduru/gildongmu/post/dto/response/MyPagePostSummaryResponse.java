@@ -18,6 +18,16 @@ public record MyPagePostSummaryResponse(
         LocalDate endDate,
         @Schema(description = "게시글 작성일", example = "2026-01-10")
         LocalDate createdAt,
+        @Schema(description = "현재 참여 확정 인원 수", example = "3")
+        int recruitCount,
+        @Schema(description = "모집 정원. 호스트를 포함한 총 인원입니다.", example = "4")
+        int recruitCapacity,
+        @Schema(description = "게시글 대표 이미지 URL. 없으면 null입니다.", nullable = true)
+        String photoUrl,
+        @Schema(description = "조회 수", example = "1242")
+        int viewCount,
+        @Schema(description = "좋아요 수", example = "34")
+        int likeCount,
         @Schema(description = "화면 표시용 게시글 상태. 여행 종료일 기준으로 계산됩니다.", example = "RECRUITING",
                 allowableValues = {"RECRUITING", "RECRUITMENT_CLOSED", "TRAVEL_ENDED"})
         MyPagePostDisplayStatus displayStatus
@@ -30,6 +40,11 @@ public record MyPagePostSummaryResponse(
                 post.getStartDate(),
                 post.getEndDate(),
                 post.getCreatedAt().toLocalDate(),
+                post.getRecruitCount(),
+                post.getRecruitCapacity(),
+                post.getPhotoUrl(),
+                post.getViewCount(),
+                post.getLikeCount(),
                 MyPagePostDisplayStatus.from(post, today)
         );
     }

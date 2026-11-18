@@ -3,6 +3,7 @@ package com.dduru.gildongmu.post.repository;
 import com.dduru.gildongmu.post.domain.Post;
 import com.dduru.gildongmu.post.domain.enums.CompanionType;
 import com.dduru.gildongmu.post.domain.enums.MyPagePostFilter;
+import com.dduru.gildongmu.post.domain.enums.MyPagePostSortType;
 import com.dduru.gildongmu.post.domain.enums.RecruitmentStatusFilter;
 import com.dduru.gildongmu.post.domain.enums.PostSortType;
 import com.dduru.gildongmu.post.domain.enums.PostStatus;
@@ -66,19 +67,31 @@ public class PostRepositoryImpl implements PostRepositoryCustom {
     }
 
     @Override
-    public List<Post> findPostsByUserId(Long userId, MyPagePostFilter filter, Long cursor, Pageable pageable, LocalDate today) {
+    public List<Post> findPostsByUserId(
+            Long userId,
+            MyPagePostFilter filter,
+            Long cursor,
+            Pageable pageable,
+            LocalDate today,
+            MyPagePostSortType sort
+    ) {
         return queryFactory
                 .selectFrom(post)
                 .leftJoin(post.destination, destination).fetchJoin()
                 .where(
                         post.user.id.eq(userId),
                         isNotDeleted(),
-                        cursor != null ? post.id.lt(cursor) : null,
+                        myPageCursorCondition(cursor, sort),
                         myPageStatusFilter(filter, today)
                 )
-                .orderBy(post.id.desc())
+                .orderBy(sort == MyPagePostSortType.OLDEST ? post.id.asc() : post.id.desc())
                 .limit(pageable.getPageSize())
                 .fetch();
+    }
+
+    private BooleanExpression myPageCursorCondition(Long cursor, MyPagePostSortType sort) {
+        if (cursor == null) return null;
+        return sort == MyPagePostSortType.OLDEST ? post.id.gt(cursor) : post.id.lt(cursor);
     }
 
     @Override

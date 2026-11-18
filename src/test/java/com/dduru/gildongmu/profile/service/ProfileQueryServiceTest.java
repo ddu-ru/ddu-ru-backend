@@ -70,5 +70,6 @@ class ProfileQueryServiceTest {
 
             assertThat(response.bio()).isNull();
         }
+
     }
 }

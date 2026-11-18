@@ -14,14 +14,24 @@ public record MyPagePostListResponse(
         @Schema(description = "현재 응답에 포함된 게시글 수", example = "10")
         int size,
         @Schema(description = "삭제되지 않은 내 전체 게시글 수. 전체보기 탭의 '전체 N' 표시에 사용됩니다.", example = "4")
-        long totalPostCount
+        long totalPostCount,
+        @Schema(description = "미사용 슈퍼호스트 티켓 수", example = "3")
+        int unusedSuperHostTicketCount
 ) {
     public static MyPagePostListResponse of(
             List<MyPagePostSummaryResponse> posts,
             boolean hasNext,
-            long totalPostCount
+            long totalPostCount,
+            int unusedSuperHostTicketCount
     ) {
         Long nextCursor = hasNext && !posts.isEmpty() ? posts.get(posts.size() - 1).id() : null;
-        return new MyPagePostListResponse(posts, nextCursor, hasNext, posts.size(), totalPostCount);
+        return new MyPagePostListResponse(
+                posts,
+                nextCursor,
+                hasNext,
+                posts.size(),
+                totalPostCount,
+                unusedSuperHostTicketCount
+        );
     }
 }

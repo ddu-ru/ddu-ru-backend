@@ -75,14 +75,27 @@ public class PostQueryService {
         LocalDate today = today();
         Pageable pageable = PageRequest.of(0, request.size() + 1);
         MyPagePostFilter status = Objects.requireNonNullElse(request.status(), MyPagePostFilter.ALL);
-        List<Post> posts = postRepository.findPostsByUserId(userId, status, request.cursor(), pageable, today);
+        List<Post> posts = postRepository.findPostsByUserId(
+                userId,
+                status,
+                request.cursor(),
+                pageable,
+                today,
+                request.sort()
+        );
         boolean hasNext = posts.size() > request.size();
         if (hasNext) posts = posts.subList(0, request.size());
         List<MyPagePostSummaryResponse> summaries = posts.stream()
                 .map(p -> MyPagePostSummaryResponse.from(p, today))
                 .toList();
         long totalPostCount = postRepository.countTotalPostsByUserId(userId);
-        return MyPagePostListResponse.of(summaries, hasNext, totalPostCount);
+        int unusedSuperHostTicketCount = superHostService.countUnusedTickets(userId);
+        return MyPagePostListResponse.of(
+                summaries,
+                hasNext,
+                totalPostCount,
+                unusedSuperHostTicketCount
+        );
     }
 
     public MyPageLikedPostListResponse retrieveMyLikedPosts(Long userId, MyPageLikedPostListRequest request) {
@@ -90,8 +103,13 @@ public class PostQueryService {
         List<PostLike> postLikes = postLikeRepository.findLikedPostsByUserIdWithCursor(userId, request.cursor(), pageable);
         boolean hasNext = postLikes.size() > request.size();
         if (hasNext) postLikes = postLikes.subList(0, request.size());
+        List<Long> postIds = postLikes.stream().map(like -> like.getPost().getId()).toList();
+        Map<Long, LocalDateTime> superHostExposures = superHostService.findActiveSuperHostExposures(postIds);
         List<MyPageLikedPostSummaryResponse> summaries = postLikes.stream()
-                .map(like -> MyPageLikedPostSummaryResponse.from(like.getPost()))
+                .map(like -> MyPageLikedPostSummaryResponse.from(
+                        like.getPost(),
+                        superHostExposures.containsKey(like.getPost().getId())
+                ))
                 .toList();
         Long lastLikeId = postLikes.isEmpty() ? null : postLikes.get(postLikes.size() - 1).getId();
         return MyPageLikedPostListResponse.of(summaries, hasNext, lastLikeId);
