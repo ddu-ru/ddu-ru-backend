@@ -21,6 +21,8 @@ public record DestinationPreferenceResponse(
         Long destinationId,
         @Schema(description = "도시명 (CITY 타입만)", example = "도쿄")
         String city,
+        @Schema(description = "선호 여행지 이미지 URL. COUNTRY 타입은 null", example = "https://cdn.example.com/destinations/tokyo.jpg", nullable = true)
+        String imageUrl,
         @Schema(description = "선호 순위 (1~3)", example = "1")
         int preferenceRank
 ) {
@@ -35,6 +37,7 @@ public record DestinationPreferenceResponse(
                     countryNameByCode.get(preference.getCountryCode()),
                     null,
                     null,
+                    null,
                     preference.getPreferenceRank()
             );
         }
@@ -45,6 +48,7 @@ public record DestinationPreferenceResponse(
                 dest.getCountryName(),
                 dest.getId(),
                 dest.getCity(),
+                dest.getImage(),
                 preference.getPreferenceRank()
         );
     }

@@ -9,7 +9,12 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 
 public interface UserRecommendationAvailableDateRepository extends JpaRepository<UserRecommendationAvailableDate, Long> {
-    List<UserRecommendationAvailableDate> findAllByUser_Id(Long userId);
+    @Query("""
+            SELECT d FROM UserRecommendationAvailableDate d
+            WHERE d.user.id = :userId
+            ORDER BY d.startDate ASC, d.endDate ASC, d.id ASC
+            """)
+    List<UserRecommendationAvailableDate> findAllByUser_Id(@Param("userId") Long userId);
 
     @Modifying(clearAutomatically = true)
     @Query("DELETE FROM UserRecommendationAvailableDate d WHERE d.user.id = :userId")

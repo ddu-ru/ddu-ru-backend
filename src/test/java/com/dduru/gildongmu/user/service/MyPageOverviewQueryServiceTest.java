@@ -62,7 +62,7 @@ class MyPageOverviewQueryServiceTest {
         TravelPreferenceResponse travelPreferences = new TravelPreferenceResponse(
                 List.of(new DestinationPreferenceResponse(
                         RecommendationDestinationPreferenceType.CITY,
-                        "JP", "일본", 1L, "도쿄", 1
+                        "JP", "일본", 1L, "도쿄", "https://example.com/tokyo.jpg", 1
                 )),
                 List.of(new AvailableDateResponse(
                         LocalDate.of(2026, 3, 15),

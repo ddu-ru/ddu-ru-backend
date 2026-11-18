@@ -13,7 +13,8 @@ public record TravelPreferenceUpdateRequest(
         @Schema(description = "입력 기준 최대 3개이며 배열 순서가 선호 순위입니다. 생략 또는 null은 기존 여행지 유지, 빈 배열은 전체 삭제입니다.", nullable = true, requiredMode = Schema.RequiredMode.NOT_REQUIRED)
         List<@NotNull @Valid DestinationPreferenceRequest> destinationPreferences,
 
-        @Schema(description = "생략 또는 null은 기존 여행 가능 날짜 유지, 빈 배열은 전체 삭제입니다. 값이 있는 배열은 전체 교체합니다.", nullable = true, requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+        @Size(max = 3)
+        @Schema(description = "입력 기준 최대 3개입니다. 생략 또는 null은 기존 여행 가능 날짜 유지, 빈 배열은 전체 삭제입니다. 값이 있는 배열은 전체 교체합니다.", nullable = true, requiredMode = Schema.RequiredMode.NOT_REQUIRED)
         List<@NotNull @Valid AvailableDateRequest> availableDates
 ) {
 }

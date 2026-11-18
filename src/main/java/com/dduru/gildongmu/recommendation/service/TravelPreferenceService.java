@@ -37,6 +37,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class TravelPreferenceService {
 
+    private static final int MAX_AVAILABLE_DATE_COUNT = 3;
+
     private final UserRecommendationDestinationPreferenceRepository destinationPreferenceRepository;
     private final UserRecommendationAvailableDateRepository availableDateRepository;
     private final UserRepository userRepository;
@@ -132,6 +134,9 @@ public class TravelPreferenceService {
     }
 
     private void validateAvailableDates(List<AvailableDateRequest> availableDateRequests) {
+        if (availableDateRequests.size() > MAX_AVAILABLE_DATE_COUNT) {
+            throw new InvalidAvailableDateException();
+        }
         for (AvailableDateRequest availableDateRequest : availableDateRequests) {
             if (availableDateRequest.startDate().isAfter(availableDateRequest.endDate())) {
                 throw new InvalidAvailableDateException();
