@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title th:text="${post.title} + ' | 뚜르'">게시글 상세 | 뚜르</title>
+    <meta name="description" th:content="${post.description}">
+    <meta property="og:type" content="article">
+    <meta property="og:site_name" content="뚜르">
+    <meta property="og:title" th:content="${post.title}">
+    <meta property="og:description" th:content="${post.description}">
+    <meta property="og:url" th:content="${canonicalUrl}">
+    <meta property="og:image" th:if="${post.photoUrl != null and !post.photoUrl.isBlank()}" th:content="${post.photoUrl}">
+    <link rel="canonical" th:href="${canonicalUrl}">
+    <style>
+        :root { color-scheme: light; font-family: Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #eef1f4; color: #202124; }
+        * { box-sizing: border-box; }
+        body { min-height: 100vh; margin: 0; background: #eef1f4; }
+        .page { position: relative; width: min(100%, 430px); min-height: 100vh; margin: 0 auto; overflow: hidden; background: #fff; box-shadow: 0 0 36px rgba(22, 30, 42, .1); }
+        .hero { position: relative; height: 326px; background: linear-gradient(145deg, #dce4eb, #a8bac8); }
+        .hero-image { width: 100%; height: 100%; display: block; object-fit: cover; }
+        .hero-placeholder { height: 100%; display: grid; place-items: center; padding: 32px; color: #fff; font-size: 17px; font-weight: 700; text-align: center; background: linear-gradient(145deg, #8eb3c7, #547f94); }
+        .hero::after { position: absolute; inset: 0; content: ""; pointer-events: none; background: linear-gradient(180deg, rgba(0, 0, 0, .24), transparent 35%, rgba(0, 0, 0, .08)); }
+        .top-bar { position: absolute; z-index: 1; top: max(18px, env(safe-area-inset-top)); right: 16px; left: 16px; display: flex; align-items: center; justify-content: space-between; }
+        .brand-pill, .share-pill { min-height: 48px; display: inline-flex; align-items: center; border: 1px solid rgba(255, 255, 255, .5); background: rgba(255, 255, 255, .84); box-shadow: 0 8px 20px rgba(22, 30, 42, .14); backdrop-filter: blur(12px); }
+        .brand-pill { padding: 0 18px; border-radius: 24px; color: #55bfe9; font-size: 18px; font-weight: 850; }
+        .share-pill { gap: 8px; padding: 0 16px; border-radius: 24px; color: #24272d; font-size: 14px; font-weight: 700; }
+        .share-pill svg { width: 19px; height: 19px; }
+        .sheet { position: relative; z-index: 2; min-height: 500px; margin-top: -22px; padding: 24px 18px 132px; border-radius: 22px 22px 0 0; background: #fff; }
+        .status { display: inline-flex; align-items: center; min-height: 40px; padding: 0 14px; border: 1px solid #e1e4e8; border-radius: 8px; color: #34373d; font-size: 14px; font-weight: 700; }
+        h1 { margin: 24px 0 6px; font-size: 21px; line-height: 1.4; letter-spacing: -.025em; }
+        .destination { margin: 0; color: #8f969f; font-size: 14px; }
+        .period { margin: 5px 0 0; color: #9ca2ab; font-size: 14px; font-weight: 650; }
+        .summary-card { display: grid; grid-template-columns: repeat(3, 1fr); margin: 26px 0; padding: 18px 0; border: 1px solid #e1e4e8; border-radius: 22px; }
+        .summary-item { min-width: 0; padding: 0 10px; text-align: center; }
+        .summary-item + .summary-item { border-left: 1px solid #e5e7ea; }
+        .summary-value { overflow: hidden; display: block; color: #15171a; font-size: 15px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+        .summary-label { display: block; margin-top: 7px; color: #adb2b8; font-size: 12px; }
+        .section { margin-top: 28px; }
+        .section-title { margin: 0 0 14px; color: #666d75; font-size: 14px; font-weight: 700; }
+        .intro { margin: 0; color: #25282d; font-size: 15px; line-height: 1.65; white-space: pre-line; overflow-wrap: anywhere; }
+        .meta { display: flex; align-items: center; gap: 10px; margin-top: 28px; color: #b0b5bc; font-size: 13px; }
+        .divider { height: 1px; margin: 26px 0; background: #e4e6e9; }
+        .info-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+        .info-card { min-height: 112px; padding: 16px; border: 1px solid #e0e3e7; border-radius: 20px; }
+        .info-label { display: flex; align-items: center; gap: 7px; padding-bottom: 11px; border-bottom: 1px solid #e5e7ea; color: #7e858e; font-size: 12px; }
+        .info-icon { color: #858c94; font-size: 15px; }
+        .info-value { display: block; margin-top: 12px; color: #202328; font-size: 14px; font-weight: 650; line-height: 1.45; overflow-wrap: anywhere; }
+        .tags { display: flex; flex-wrap: wrap; gap: 8px; }
+        .tag { padding: 8px 12px; border-radius: 999px; background: #f1f3f5; color: #686f77; font-size: 12px; }
+        .empty-tags { color: #a6abb2; font-size: 13px; }
+        .bottom-cta { position: fixed; z-index: 5; right: 0; bottom: 0; left: 0; width: min(100%, 430px); margin: 0 auto; padding: 14px 18px max(18px, env(safe-area-inset-bottom)); background: linear-gradient(180deg, rgba(255, 255, 255, 0), #fff 24%); }
+        .cta-card { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px; padding: 13px 14px; border: 1px solid rgba(224, 227, 231, .8); border-radius: 20px; background: rgba(249, 250, 251, .94); box-shadow: 0 10px 30px rgba(35, 43, 55, .13); backdrop-filter: blur(14px); }
+        .cta-copy small, .cta-copy strong { display: block; }
+        .cta-copy small { color: #999fa7; font-size: 11px; }
+        .cta-copy strong { margin-top: 4px; color: #34383e; font-size: 14px; }
+        .store-link, .coming-soon { min-width: 128px; min-height: 48px; display: inline-flex; align-items: center; justify-content: center; border-radius: 15px; font-size: 14px; font-weight: 800; }
+        .store-link { background: #202328; color: #fff; text-decoration: none; }
+        .coming-soon { background: #fff; color: #6f757d; box-shadow: inset 0 0 0 1px #e0e3e7; }
+        @media (max-width: 360px) {
+            .hero { height: 290px; }
+            .summary-value { font-size: 13px; }
+            .info-card { padding: 14px; }
+            .store-link, .coming-soon { min-width: 112px; }
+        }
+    </style>
+</head>
+<body>
+<main class="page">
+    <section class="hero">
+        <img class="hero-image" th:if="${post.photoUrl != null and !post.photoUrl.isBlank()}" th:src="${post.photoUrl}" th:alt="${post.title}">
+        <div class="hero-placeholder" th:unless="${post.photoUrl != null and !post.photoUrl.isBlank()}">함께 떠날 여행을 찾아보세요</div>
+        <div class="top-bar">
+            <div class="brand-pill">뚜르</div>
+            <div class="share-pill" aria-label="공유 게시글">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8Z"/></svg>
+                동행 게시글
+            </div>
+        </div>
+    </section>
+
+    <article class="sheet">
+        <span class="status" th:text="${post.recruitmentStatus}">모집 중</span>
+        <h1 th:text="${post.title}">게시글 제목</h1>
+        <p class="destination" th:text="|${post.destination}로 떠나요|">제주로 떠나요</p>
+        <p class="period" th:text="|${post.travelPeriod} (${post.tripDuration})|">2026. 7. 10. - 2026. 7. 12. (2박 3일)</p>
+
+        <section class="summary-card" aria-label="모집 요약">
+            <div class="summary-item"><strong class="summary-value" th:text="${post.companionType}">전체 동행</strong><span class="summary-label">모집 유형</span></div>
+            <div class="summary-item"><strong class="summary-value" th:text="|${post.recruitCount}/${post.recruitCapacity}명|">2/4명</strong><span class="summary-label">모집 인원</span></div>
+            <div class="summary-item"><strong class="summary-value" th:text="${post.ageCondition}">20-29세 · 무관</strong><span class="summary-label">모집 조건</span></div>
+        </section>
+
+        <section class="section">
+            <h2 class="section-title">여행 소개</h2>
+            <p class="intro" th:text="${post.content}">여행 소개 내용</p>
+            <div class="meta">
+                <span th:if="${post.createdDate != null and !post.createdDate.isBlank()}" th:text="|작성일 ${post.createdDate}|">작성일 2026.06.29</span>
+                <span aria-hidden="true">·</span>
+                <span th:text="|조회수 ${post.viewCount}|">조회수 128</span>
+            </div>
+        </section>
+
+        <div class="divider"></div>
+
+        <section class="section">
+            <h2 class="section-title">핵심 정보</h2>
+            <div class="info-grid">
+                <div class="info-card"><span class="info-label"><span class="info-icon">▣</span>여행 일정</span><strong class="info-value" th:text="|${post.travelPeriod} (${post.tripDuration})|">여행 일정</strong></div>
+                <div class="info-card"><span class="info-label"><span class="info-icon">●</span>모집 인원</span><strong class="info-value" th:text="|${post.recruitCount}/${post.recruitCapacity}명|">2/4명</strong></div>
+                <div class="info-card"><span class="info-label"><span class="info-icon">●</span>모집 조건</span><strong class="info-value" th:text="${post.ageCondition}">20-29세 · 성별 무관</strong></div>
+                <div class="info-card"><span class="info-label"><span class="info-icon">▣</span>모집 유형</span><strong class="info-value" th:text="${post.companionType}">전체 동행</strong></div>
+            </div>
+        </section>
+
+        <section class="section">
+            <h2 class="section-title">해시태그</h2>
+            <div class="tags" th:if="${post.tags != null and !post.tags.isEmpty()}"><span class="tag" th:each="tag : ${post.tags}" th:text="|#${tag}|">#힐링</span></div>
+            <span class="empty-tags" th:unless="${post.tags != null and !post.tags.isEmpty()}">등록된 해시태그가 없어요.</span>
+        </section>
+    </article>
+</main>
+
+<aside class="bottom-cta">
+    <div class="cta-card">
+        <div class="cta-copy"><small th:text="${post.travelPeriod}">2026. 7. 10. - 2026. 7. 12.</small><strong th:text="|${post.destination} · ${post.tripDuration}|">제주 · 2박 3일</strong></div>
+        <a class="store-link" th:if="${hasPlayStoreUrl}" th:href="${playStoreUrl}">앱에서 보기</a>
+        <div class="coming-soon" th:unless="${hasPlayStoreUrl}">앱 출시 준비 중</div>
+    </div>
+</aside>
+</body>
+</html>
